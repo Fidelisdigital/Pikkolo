@@ -1,128 +1,243 @@
 import React, { useState } from 'react';
-import { Grid3X3, Eye, EyeOff, RefreshCw, Download } from 'lucide-react';
+import { Grid3X3, Eye, EyeOff, RefreshCw, Download, Trash2, FileText, FileDown } from 'lucide-react';
 import { generateSudoku, SudokuDifficulty } from '../../utils/sudoku';
 import { motion } from 'motion/react';
-import confetti from 'canvas-confetti';
+import { useDraft } from '../../hooks/useDraft';
+import { exportToPDF, exportToDOCX } from '../../services/exportService';
+
+import FullPreviewModal from '../FullPreviewModal';
 
 const Sudoku: React.FC = () => {
-  const [difficulty, setDifficulty] = useState<SudokuDifficulty>('easy');
-  const [game, setGame] = useState<{ puzzle: (number | null)[][], solution: (number | null)[][] } | null>(null);
-  const [userBoard, setUserBoard] = useState<(number | null)[][]>([]);
-  const [showSolution, setShowSolution] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [games, setGames, clearGames] = useDraft<{ puzzle: (number | null)[][], solution: (number | null)[][] }[]>('sudoku_results', []);
+  const [showSolutions, setShowSolutions] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  const handleNewGame = () => {
-    const newGame = generateSudoku(difficulty);
-    setGame(newGame);
-    setUserBoard(newGame.puzzle.map(row => [...row]));
-    setShowSolution(false);
+  const [settings, setSettings, clearSettings] = useDraft('sudoku_settings', {
+    difficulty: 'easy' as SudokuDifficulty,
+    count: 5,
+    paperSize: '8.5 x 11',
+    customInstructions: '',
+  });
+
+  const handleClear = () => {
+    if (confirm('Are you sure you want to clear your current work?')) {
+      clearGames();
+      clearSettings();
+      setShowSolutions(false);
+    }
   };
 
-  const handleInputChange = (r: number, c: number, val: string) => {
-    if (game?.puzzle[r][c] !== null) return;
-    const num = parseInt(val);
-    const newBoard = userBoard.map(row => [...row]);
-    if (isNaN(num) || num < 1 || num > 9) {
-      newBoard[r][c] = null;
+  const handleGenerate = () => {
+    setLoading(true);
+    // Simulate generation delay since it's local
+    setTimeout(() => {
+      const newGames = Array.from({ length: settings.count }, () => generateSudoku(settings.difficulty));
+      setGames(newGames);
+      setLoading(false);
+    }, 1000);
+  };
+
+  const handleExport = (format: 'pdf' | 'docx') => {
+    const title = `Sudoku_Puzzle_Book_${settings.difficulty}`;
+    const content = games.map((g, i) => ({
+      title: `Puzzle ${i + 1}`,
+      description: `Difficulty: ${settings.difficulty}`,
+      grid: g.puzzle,
+      prompt: settings.customInstructions
+    }));
+
+    if (format === 'pdf') {
+      exportToPDF(title, content, 'puzzle');
     } else {
-      newBoard[r][c] = num;
+      exportToDOCX(title, content, 'puzzle');
     }
-    setUserBoard(newBoard);
-
-    // Check if solved
-    if (checkSolved(newBoard)) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
-  };
-
-  const checkSolved = (board: (number | null)[][]) => {
-    if (!game) return false;
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        if (board[r][c] !== game.solution[r][c]) return false;
-      }
-    }
-    return true;
   };
 
   return (
     <div className="space-y-8">
       <header>
-        <h2 className="text-4xl font-serif italic font-bold">Sudoku Generator</h2>
-        <p className="text-[#1A1A1A]/50 dark:text-slate-400">Instant valid puzzles with difficulty levels.</p>
+        <h2 className="text-4xl font-serif italic font-bold text-foreground">Sudoku Generator</h2>
+        <p className="text-muted-foreground">Instant valid puzzles with difficulty levels.</p>
       </header>
 
-      <div className="bg-white dark:bg-[#1E293B] p-8 rounded-3xl border border-[#1A1A1A]/5 dark:border-white/5 shadow-sm flex flex-col md:flex-row gap-6 items-end">
-        <div className="flex-1 space-y-2 w-full">
-          <label className="text-[10px] uppercase tracking-widest font-bold opacity-50 dark:text-slate-500">Difficulty</label>
-          <div className="flex gap-2">
-            {(['easy', 'medium', 'hard'] as SudokuDifficulty[]).map(d => (
-              <button
-                key={d}
-                onClick={() => setDifficulty(d)}
-                className={`flex-1 py-2 rounded-xl border font-bold text-sm transition-all ${
-                  difficulty === d 
-                    ? 'bg-[#F27D26] border-[#F27D26] text-white' 
-                    : 'bg-white dark:bg-[#1E293B] border-[#1A1A1A]/10 dark:border-white/10 text-[#1A1A1A]/60 dark:text-slate-400 hover:border-[#F27D26]'
-                }`}
-              >
-                {d.charAt(0).toUpperCase() + d.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button 
-          onClick={handleNewGame}
-          className="w-full md:w-auto px-8 py-3.5 bg-[#1A1A1A] dark:bg-slate-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black dark:hover:bg-slate-600 transition-all"
-        >
-          <RefreshCw size={20} />
-          New Puzzle
-        </button>
-      </div>
-
-      {game && (
-        <div className="flex flex-col lg:flex-row gap-12 items-start justify-center">
-          <div className="bg-white dark:bg-[#1E293B] p-4 lg:p-8 rounded-[40px] border border-[#1A1A1A]/10 dark:border-white/10 shadow-2xl">
-            <div className="grid grid-cols-9 border-2 border-[#1A1A1A] dark:border-white/20">
-              {userBoard.map((row, r) => (
-                row.map((cell, c) => (
-                  <input
-                    key={`${r}-${c}`}
-                    type="text"
-                    maxLength={1}
-                    value={showSolution ? (game.solution[r][c] || '') : (cell || '')}
-                    onChange={(e) => handleInputChange(r, c, e.target.value)}
-                    readOnly={game.puzzle[r][c] !== null || showSolution}
-                    className={`w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-center text-xl font-bold outline-none border border-[#1A1A1A]/10 dark:border-white/10 bg-transparent
-                      ${(r + 1) % 3 === 0 && r < 8 ? 'border-b-2 border-b-[#1A1A1A] dark:border-b-white/20' : ''}
-                      ${(c + 1) % 3 === 0 && c < 8 ? 'border-r-2 border-r-[#1A1A1A] dark:border-r-white/20' : ''}
-                      ${game.puzzle[r][c] !== null ? 'bg-[#1A1A1A]/5 dark:bg-white/5 text-[#1A1A1A] dark:text-slate-200' : 'text-[#F27D26]'}
-                      ${showSolution && game.puzzle[r][c] === null ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}
-                    `}
-                  />
-                ))
+      <div className="bg-card p-8 rounded-3xl border border-border shadow-sm space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Difficulty</label>
+            <div className="flex gap-2">
+              {(['easy', 'medium', 'hard'] as SudokuDifficulty[]).map(d => (
+                <button
+                  key={d}
+                  onClick={() => setSettings({...settings, difficulty: d})}
+                  className={`flex-1 py-2 rounded-xl border font-bold text-sm transition-all ${
+                    settings.difficulty === d 
+                      ? 'bg-primary border-primary text-primary-foreground' 
+                      : 'bg-card border-border text-muted-foreground hover:border-primary'
+                  }`}
+                >
+                  {d.charAt(0).toUpperCase() + d.slice(1)}
+                </button>
               ))}
             </div>
           </div>
-
-          <div className="w-full lg:w-64 space-y-4">
-            <button 
-              onClick={() => setShowSolution(!showSolution)}
-              className="w-full py-4 bg-white dark:bg-[#1E293B] border border-[#1A1A1A]/10 dark:border-white/10 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#1A1A1A]/5 dark:hover:bg-white/5 transition-all"
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Paper Size</label>
+            <select 
+              className="w-full p-3 rounded-xl border border-input bg-transparent outline-none text-foreground"
+              value={settings.paperSize}
+              onChange={e => setSettings({...settings, paperSize: e.target.value})}
             >
-              {showSolution ? <EyeOff size={20} /> : <Eye size={20} />}
-              {showSolution ? 'Hide Solution' : 'Show Solution'}
+              <option className="bg-card">6 x 9</option>
+              <option className="bg-card">8.5 x 11</option>
+              <option className="bg-card">8.25 x 8.25</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Number of Puzzles</label>
+            <input 
+              type="number" 
+              className="w-full p-3 rounded-xl border border-input bg-transparent outline-none text-foreground"
+              value={settings.count}
+              onChange={e => setSettings({...settings, count: parseInt(e.target.value)})}
+            />
+          </div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <button 
+              onClick={handleGenerate}
+              disabled={loading}
+              className="flex-1 md:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+            >
+              {loading ? <RefreshCw className="animate-spin" /> : <Grid3X3 size={20} />}
+              Generate Book
             </button>
-            <button className="w-full py-4 bg-white dark:bg-[#1E293B] border border-[#1A1A1A]/10 dark:border-white/10 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#1A1A1A]/5 dark:hover:bg-white/5 transition-all">
-              <Download size={20} />
-              Export PDF
+            <button 
+              onClick={handleClear}
+              className="p-3.5 bg-card border border-border rounded-xl text-muted-foreground hover:text-destructive transition-colors"
+              title="Clear Draft"
+            >
+              <Trash2 size={20} />
             </button>
           </div>
         </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Precise Generation Prompt</label>
+          <textarea 
+            placeholder="Add specific details or constraints for more precise generation..."
+            rows={2}
+            className="w-full p-3 rounded-xl border border-input bg-transparent outline-none focus:ring-2 focus:ring-primary resize-none text-sm text-foreground"
+            value={settings.customInstructions}
+            onChange={e => setSettings({...settings, customInstructions: e.target.value})}
+          />
+        </div>
+      </div>
+
+      {games.length > 0 && (
+        <div className="space-y-12">
+          <div className="flex justify-between items-center">
+            <h3 className="text-2xl font-serif italic font-bold text-foreground">Book Preview</h3>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setIsPreviewOpen(true)}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:shadow-lg transition-all flex items-center gap-2"
+              >
+                <Eye size={18} />
+                Preview & Export
+              </button>
+              <button 
+                onClick={() => setShowSolutions(!showSolutions)}
+                className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-muted/80 transition-colors flex items-center gap-2"
+              >
+                {showSolutions ? <EyeOff size={20} /> : <Eye size={20} />}
+                {showSolutions ? 'Hide Solutions' : 'Show Solutions'}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-12">
+            <div className="bg-muted p-4 rounded-xl text-[10px] uppercase tracking-widest font-bold text-muted-foreground text-center">
+              Puzzles Section
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+              {games.map((game, gi) => (
+                <motion.div 
+                  key={gi}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: gi * 0.05 }}
+                  className="bg-card p-4 rounded-3xl border border-border shadow-xl"
+                >
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4 text-center">Puzzle {gi + 1}</h4>
+                  <div className="grid grid-cols-9 border-2 border-foreground/20 mx-auto w-fit">
+                    {game.puzzle.map((row, r) => (
+                      row.map((cell, c) => (
+                        <div
+                          key={`${r}-${c}`}
+                          className={`w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-sm font-bold border border-border
+                            ${(r + 1) % 3 === 0 && r < 8 ? 'border-b-2 border-b-foreground/20' : ''}
+                            ${(c + 1) % 3 === 0 && c < 8 ? 'border-r-2 border-r-foreground/20' : ''}
+                            ${cell !== null ? 'bg-muted text-foreground' : 'text-transparent'}
+                          `}
+                        >
+                          {cell}
+                        </div>
+                      ))
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {showSolutions && (
+              <>
+                <div className="bg-muted p-4 rounded-xl text-[10px] uppercase tracking-widest font-bold text-muted-foreground text-center mt-12">
+                  Solutions Section
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {games.map((game, gi) => (
+                    <motion.div 
+                      key={`sol-${gi}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-card p-4 rounded-2xl border border-emerald-500/20 shadow-sm"
+                    >
+                      <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-2 text-center">Solution {gi + 1}</h4>
+                      <div className="grid grid-cols-9 border border-emerald-200 dark:border-emerald-900/50 mx-auto w-fit">
+                        {game.solution.map((row, r) => (
+                          row.map((cell, c) => (
+                            <div
+                              key={`${r}-${c}`}
+                              className={`w-4 h-4 flex items-center justify-center text-[8px] font-bold border border-emerald-100 dark:border-emerald-900/20
+                                ${(r + 1) % 3 === 0 && r < 8 ? 'border-b-2 border-b-emerald-200 dark:border-b-emerald-900/50' : ''}
+                                ${(c + 1) % 3 === 0 && c < 8 ? 'border-r-2 border-r-emerald-200 dark:border-r-emerald-900/50' : ''}
+                                ${game.puzzle[r][c] !== null ? 'text-emerald-900/40 dark:text-emerald-100/40' : 'text-emerald-600'}
+                              `}
+                            >
+                              {cell}
+                            </div>
+                          ))
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
+      <FullPreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        title={`Sudoku ${settings.difficulty}`}
+        items={games.map((g, i) => ({
+          title: `Puzzle ${i + 1}`,
+          description: `Difficulty: ${settings.difficulty}`,
+          grid: g.puzzle,
+        }))}
+        onExport={handleExport}
+      />
     </div>
   );
 };

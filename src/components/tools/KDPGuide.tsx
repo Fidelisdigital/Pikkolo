@@ -48,42 +48,42 @@ const KDPGuide: React.FC = () => {
   return (
     <div className="space-y-8">
       <header>
-        <h2 className="text-4xl font-serif italic font-bold">KDP Master Guide</h2>
-        <p className="text-[#1A1A1A]/50 dark:text-slate-400">Trim sizes, margins, royalties, and the full publishing workflow.</p>
+        <h2 className="text-4xl font-serif italic font-bold text-foreground">KDP Master Guide</h2>
+        <p className="text-muted-foreground">Trim sizes, margins, royalties, and the full publishing workflow.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-3 bg-white dark:bg-[#1E293B] p-10 rounded-[40px] border border-[#1A1A1A]/5 dark:border-white/5 shadow-xl">
-          <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-serif prose-headings:italic prose-h1:text-4xl prose-h2:text-2xl prose-h2:mt-10 prose-table:border prose-table:rounded-xl overflow-hidden">
+        <div className="lg:col-span-3 bg-card p-10 rounded-[40px] border border-border shadow-xl">
+          <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-serif prose-headings:italic prose-h1:text-4xl prose-h2:text-2xl prose-h2:mt-10 prose-table:border prose-table:rounded-xl overflow-hidden text-foreground">
             <ReactMarkdown>{kdpContent}</ReactMarkdown>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-[#F27D26] text-white p-8 rounded-3xl shadow-lg shadow-[#F27D26]/20">
+          <div className="bg-primary text-primary-foreground p-8 rounded-3xl shadow-lg shadow-primary/20">
             <Rocket size={32} className="mb-4" />
             <h3 className="text-xl font-bold mb-2">Ready to Launch?</h3>
-            <p className="text-white/80 text-sm mb-6">Once your content is ready, head over to Amazon KDP to start your journey.</p>
+            <p className="text-primary-foreground/80 text-sm mb-6">Once your content is ready, head over to Amazon KDP to start your journey.</p>
             <a 
               href="https://kdp.amazon.com" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="block text-center py-3 bg-white text-[#F27D26] rounded-xl font-bold hover:bg-white/90 transition-all"
+              className="block text-center py-3 bg-background text-primary rounded-xl font-bold hover:bg-background/90 transition-all"
             >
               Visit KDP
             </a>
           </div>
 
-          <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-[#1A1A1A]/5 dark:border-white/5 space-y-4">
-            <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-50 dark:text-slate-500">Quick Links</h4>
+          <div className="bg-card p-6 rounded-3xl border border-border space-y-4">
+            <h4 className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Quick Links</h4>
             <div className="space-y-2">
               {[
                 { label: 'Cover Calculator', icon: Ruler },
                 { label: 'Royalty Calculator', icon: DollarSign },
                 { label: 'KDP University', icon: Info },
               ].map((link, i) => (
-                <button key={i} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#1A1A1A]/5 dark:hover:bg-white/5 transition-all text-sm font-medium">
-                  <link.icon size={16} className="text-[#F27D26]" />
+                <button key={i} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-all text-sm font-medium text-foreground">
+                  <link.icon size={16} className="text-primary" />
                   {link.label}
                 </button>
               ))}

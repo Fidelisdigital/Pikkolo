@@ -19,7 +19,8 @@ import {
   Moon,
   Sun,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -55,14 +56,44 @@ type View =
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
+  const [history, setHistory] = useState<View[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pikkolo_theme');
+      return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  const navigateTo = (view: View) => {
+    if (view === 'home') {
+      setHistory([]);
+      setCurrentView('home');
+    } else if (view !== currentView) {
+      setHistory(prev => [...prev, currentView]);
+      setCurrentView(view);
+    }
+  };
+
+  const goBack = () => {
+    if (history.length > 0) {
+      const newHistory = [...history];
+      const previous = newHistory.pop();
+      setHistory(newHistory);
+      if (previous) setCurrentView(previous);
+    } else {
+      setCurrentView('home');
+    }
+  };
 
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('pikkolo_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('pikkolo_theme', 'light');
     }
   }, [isDarkMode]);
 
@@ -81,7 +112,7 @@ const App: React.FC = () => {
 
   const renderView = () => {
     switch (currentView) {
-      case 'home': return <HomeView onNavigate={setCurrentView} />;
+      case 'home': return <HomeView onNavigate={navigateTo} />;
       case 'kids-books': return <KidsBooks />;
       case 'coloring-books': return <ColoringBooks />;
       case 'word-search': return <WordSearch />;
@@ -91,25 +122,28 @@ const App: React.FC = () => {
       case 'image-prompts': return <ImagePrompts />;
       case 'character-builder': return <CharacterBuilder />;
       case 'kdp-guide': return <KDPGuide />;
-      default: return <HomeView onNavigate={setCurrentView} />;
+      default: return <HomeView onNavigate={navigateTo} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB] dark:bg-[#0F172A] text-[#1A1A1A] dark:text-slate-100 font-sans selection:bg-[#F27D26]/30 transition-colors duration-300">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 transition-colors duration-300">
       {/* Mobile Header */}
-      <div className="lg:hidden flex items-center justify-between p-4 border-b border-[#1A1A1A]/10 dark:border-white/10 bg-white dark:bg-[#1E293B] sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#F27D26] rounded-lg flex items-center justify-center text-white">
-            <BookOpen size={20} />
+      <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
+        <button 
+          onClick={() => navigateTo('home')}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
+            <span className="font-serif italic font-bold text-lg">P</span>
           </div>
-          <span className="font-serif italic font-bold text-lg">Pikkolo</span>
-        </div>
+          <span className="font-serif italic font-bold text-lg text-foreground">Pikkolo</span>
+        </button>
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-[#1A1A1A]/60 dark:text-slate-400">
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-muted-foreground">
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-foreground">
             {isSidebarOpen ? <X /> : <Menu />}
           </button>
         </div>
@@ -118,41 +152,44 @@ const App: React.FC = () => {
       <div className="flex">
         {/* Sidebar */}
         <aside className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-[#1E293B] border-r border-[#1A1A1A]/10 dark:border-white/10 transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 w-64 bg-card/95 backdrop-blur-md border-r border-border transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0",
           !isSidebarOpen && "-translate-x-full lg:w-0 lg:opacity-0 lg:overflow-hidden"
         )}>
-          <div className="p-6 hidden lg:flex items-center justify-between border-b border-[#1A1A1A]/5 dark:border-white/5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#F27D26] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#F27D26]/20">
-                <BookOpen size={24} />
+          <div className="p-6 hidden lg:flex items-center justify-between border-b border-border/5">
+            <button 
+              onClick={() => navigateTo('home')}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity text-left"
+            >
+              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                <span className="font-serif italic font-bold text-2xl">P</span>
               </div>
               <div>
-                <h1 className="font-serif italic font-bold text-xl leading-none">Pikkolo</h1>
-                <span className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Studio</span>
+                <h1 className="font-serif italic font-bold text-xl leading-none text-foreground">Pikkolo</h1>
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Studio</span>
               </div>
-            </div>
+            </button>
           </div>
 
           <nav className="p-4 space-y-8 overflow-y-auto h-[calc(100vh-88px)]">
             {['Main', 'Generators', 'Tools'].map(category => (
               <div key={category}>
-                <h3 className="px-4 text-[11px] uppercase tracking-widest font-bold text-[#1A1A1A]/40 dark:text-slate-500 mb-3">{category}</h3>
+                <h3 className="px-4 text-[11px] uppercase tracking-widest font-bold text-muted-foreground mb-3">{category}</h3>
                 <div className="space-y-1">
                   {navItems.filter(item => item.category === category).map(item => (
                     <button
                       key={item.id}
                       onClick={() => {
-                        setCurrentView(item.id as View);
+                        navigateTo(item.id as View);
                         if (window.innerWidth < 1024) setIsSidebarOpen(false);
                       }}
                       className={cn(
                         "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group",
                         currentView === item.id 
-                          ? "bg-[#F27D26] text-white shadow-md shadow-[#F27D26]/20" 
-                          : "hover:bg-[#F27D26]/5 dark:hover:bg-white/5 text-[#1A1A1A]/70 dark:text-slate-400 hover:text-[#F27D26] dark:hover:text-[#F27D26]"
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
+                          : "hover:bg-primary/5 text-muted-foreground hover:text-primary"
                       )}
                     >
-                      <item.icon size={18} className={cn(currentView === item.id ? "text-white" : "group-hover:scale-110 transition-transform")} />
+                      <item.icon size={18} className={cn(currentView === item.id ? "text-primary-foreground" : "group-hover:scale-110 transition-transform")} />
                       <span className="font-medium text-sm">{item.label}</span>
                     </button>
                   ))}
@@ -165,20 +202,44 @@ const App: React.FC = () => {
         {/* Main Content */}
         <main className="flex-1 min-h-screen relative overflow-x-hidden">
           {/* Desktop Toolbar */}
-          <div className="hidden lg:flex items-center justify-between p-6 sticky top-0 z-30 bg-[#FDFCFB]/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-[#1A1A1A]/5 dark:border-white/5">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-[#1A1A1A]/5 dark:hover:bg-white/5 rounded-lg text-[#1A1A1A]/60 dark:text-slate-400 transition-colors"
-            >
-              {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-            </button>
+          <div className="hidden lg:flex items-center justify-between p-6 sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/5">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-2 hover:bg-muted/50 rounded-lg text-muted-foreground transition-colors"
+              >
+                {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+              </button>
+              {currentView !== 'home' && (
+                <button 
+                  onClick={goBack}
+                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 rounded-lg text-muted-foreground transition-colors text-sm font-medium"
+                >
+                  <ArrowLeft size={18} />
+                  Back
+                </button>
+              )}
+            </div>
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 hover:bg-[#1A1A1A]/5 dark:hover:bg-white/5 rounded-lg text-[#1A1A1A]/60 dark:text-slate-400 transition-colors"
+              className="p-2 hover:bg-muted/50 rounded-lg text-muted-foreground transition-colors"
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
           </div>
+
+          {/* Mobile Back Button (Floating or inline) */}
+          {currentView !== 'home' && (
+            <div className="lg:hidden px-4 pt-4">
+              <button 
+                onClick={goBack}
+                className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg text-muted-foreground text-sm font-medium shadow-sm"
+              >
+                <ArrowLeft size={18} />
+                Back
+              </button>
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -205,15 +266,15 @@ const HomeView: React.FC<{ onNavigate: (view: View) => void }> = ({ onNavigate }
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="inline-block px-3 py-1 bg-[#F27D26]/10 text-[#F27D26] rounded-full text-[10px] font-bold uppercase tracking-widest"
+          className="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest"
         >
           Welcome to the Studio
         </motion.div>
-        <h2 className="text-5xl lg:text-7xl font-serif italic font-light leading-tight">
+        <h2 className="text-5xl lg:text-7xl font-serif italic font-light leading-tight text-foreground">
           Craft your next <br />
-          <span className="font-bold text-[#F27D26]">Masterpiece.</span>
+          <span className="font-bold text-primary">Masterpiece.</span>
         </h2>
-        <p className="text-lg text-[#1A1A1A]/60 dark:text-slate-400 max-w-2xl">
+        <p className="text-lg text-muted-foreground max-w-2xl">
           The all-in-one creative suite for self-publishers. Generate content, build characters, and design covers with the power of AI.
         </p>
       </header>
@@ -225,7 +286,7 @@ const HomeView: React.FC<{ onNavigate: (view: View) => void }> = ({ onNavigate }
           { id: 'word-search', title: 'Word Search', desc: 'AI word lists and grid generation.', icon: Search, color: 'bg-emerald-500' },
           { id: 'trivia', title: 'Trivia', desc: 'Engaging quizzes in multiple formats.', icon: HelpCircle, color: 'bg-purple-500' },
           { id: 'sudoku', title: 'Sudoku', desc: 'Instant valid puzzles with solutions.', icon: Grid3X3, color: 'bg-amber-500' },
-          { id: 'book-cover', title: 'Book Cover', desc: 'Live canvas preview and design.', icon: ImageIcon, color: 'bg-[#F27D26]' },
+          { id: 'book-cover', title: 'Book Cover', desc: 'Live canvas preview and design.', icon: ImageIcon, color: 'bg-primary' },
         ].map((card, i) => (
           <motion.button
             key={card.id}
@@ -233,17 +294,18 @@ const HomeView: React.FC<{ onNavigate: (view: View) => void }> = ({ onNavigate }
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
             onClick={() => onNavigate(card.id as View)}
-            className="group relative p-8 bg-white dark:bg-[#1E293B] border border-[#1A1A1A]/5 dark:border-white/5 rounded-3xl text-left hover:shadow-2xl hover:shadow-[#1A1A1A]/5 dark:hover:shadow-black/20 transition-all duration-300 overflow-hidden"
+            className="group relative p-8 bg-card border border-border rounded-[32px] text-left hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 overflow-hidden"
           >
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white mb-6 transition-transform group-hover:scale-110", card.color)}>
-              <card.icon size={24} />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-primary-foreground mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg", card.color)}>
+              <card.icon size={28} />
             </div>
-            <h3 className="text-xl font-bold mb-2">
+            <h3 className="text-2xl font-bold mb-2 relative z-10 text-card-foreground">
               {card.title}
             </h3>
-            <p className="text-[#1A1A1A]/50 dark:text-slate-400 text-sm leading-relaxed">{card.desc}</p>
-            <div className="mt-6 flex items-center text-[#F27D26] font-bold text-xs uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-              Launch Tool <ChevronRight size={14} />
+            <p className="text-muted-foreground text-sm leading-relaxed relative z-10">{card.desc}</p>
+            <div className="mt-8 flex items-center text-primary font-bold text-xs uppercase tracking-widest opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300 relative z-10">
+              Launch Tool <ChevronRight size={14} className="ml-1" />
             </div>
           </motion.button>
         ))}

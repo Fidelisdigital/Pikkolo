@@ -85,27 +85,78 @@ const DraftsView: React.FC<DraftsViewProps> = ({ onOpenDraft }) => {
         items = data;
         exportType = 'coloring';
         break;
-      case 'trivia':
-        items = data;
+      case 'trivia': {
+        const puzzleContent = data.map((q: any, i: number) => ({
+          title: `Question ${i + 1}`,
+          description: `Topic: ${draft.title}`,
+          content: `${q.question}\n\n${q.options ? q.options.map((opt: any, idx: number) => `${String.fromCharCode(65 + idx)}) ${opt}`).join('\n') : ''}`,
+        }));
+
+        const solutionPages = [];
+        const questionsPerPage = 10;
+        for (let i = 0; i < data.length; i += questionsPerPage) {
+          const pageQuestions = data.slice(i, i + questionsPerPage);
+          solutionPages.push({
+            title: `Answers: Questions ${i + 1} - ${Math.min(i + questionsPerPage, data.length)}`,
+            description: `Correct Answers and Explanations`,
+            content: pageQuestions.map((q: any, idx: number) => 
+              `${i + idx + 1}. Correct Answer: ${q.answer}\nExplanation: ${q.explanation}`
+            ).join('\n\n'),
+            isSolution: true
+          });
+        }
+        items = [...puzzleContent, ...solutionPages];
         exportType = 'trivia';
         break;
-      case 'word-search':
-        items = data.map((p: any, i: number) => ({
+      }
+      case 'word-search': {
+        const puzzleContent = data.map((p: any, i: number) => ({
           title: `Puzzle ${i + 1}: ${draft.title}`,
           description: `Find the hidden words in the grid.`,
           grid: p.grid,
           words: p.words,
         }));
+
+        const solutionContent = data.map((p: any, i: number) => ({
+          title: `Answer Key: Puzzle ${i + 1}`,
+          description: `Solutions for Puzzle ${i + 1}`,
+          grid: p.grid,
+          words: p.words,
+          highlightedCells: Object.values(p.placedPositions || {}).flat(),
+          isSolution: true,
+          content: Object.entries(p.placedPositions || {}).map(([word, pos]: [string, any]) => 
+            `${word.toUpperCase()}: (${pos[0].r + 1}, ${pos[0].c + 1})`
+          ).join('\n')
+        }));
+
+        items = [...puzzleContent, ...solutionContent];
         exportType = 'puzzle';
         break;
-      case 'sudoku':
-        items = data.map((g: any, i: number) => ({
+      }
+      case 'sudoku': {
+        const puzzleContent = data.map((g: any, i: number) => ({
           title: `Puzzle ${i + 1}`,
           description: `Difficulty: ${draft.content.settings?.difficulty || 'Medium'}`,
           grid: g.puzzle,
         }));
+
+        const solutionPages = [];
+        for (let i = 0; i < data.length; i += 4) {
+          const pageGames = data.slice(i, i + 4);
+          solutionPages.push({
+            title: `Solutions: Puzzles ${i + 1} - ${Math.min(i + 4, data.length)}`,
+            description: `Answer Key for Sudoku Puzzles`,
+            grids: pageGames.map((g: any, idx: number) => ({
+              grid: g.solution,
+              title: `Puzzle ${i + idx + 1}`
+            })),
+            isSolution: true
+          });
+        }
+        items = [...puzzleContent, ...solutionPages];
         exportType = 'puzzle';
         break;
+      }
       default:
         items = Array.isArray(data) ? data : [];
     }

@@ -64,12 +64,28 @@ const Sudoku: React.FC = () => {
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `Sudoku_Puzzle_Book_${settings.difficulty}`;
-    const content = games.map((g, i) => ({
+    const puzzleContent = games.map((g, i) => ({
       title: `Puzzle ${i + 1}`,
       description: `Difficulty: ${settings.difficulty}`,
       grid: g.puzzle,
       prompt: settings.customInstructions
     }));
+
+    const solutionPages = [];
+    for (let i = 0; i < games.length; i += 4) {
+      const pageGames = games.slice(i, i + 4);
+      solutionPages.push({
+        title: `Solutions: Puzzles ${i + 1} - ${Math.min(i + 4, games.length)}`,
+        description: `Answer Key for Sudoku Puzzles`,
+        grids: pageGames.map((g, idx) => ({
+          grid: g.solution,
+          title: `Puzzle ${i + idx + 1}`
+        })),
+        isSolution: true
+      });
+    }
+
+    const content = [...puzzleContent, ...solutionPages];
 
     try {
       if (format === 'pdf') {
@@ -276,11 +292,29 @@ const Sudoku: React.FC = () => {
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
         title={`Sudoku ${settings.difficulty}`}
-        items={games.map((g, i) => ({
-          title: `Puzzle ${i + 1}`,
-          description: `Difficulty: ${settings.difficulty}`,
-          grid: g.puzzle,
-        }))}
+        items={[
+          ...games.map((g, i) => ({
+            title: `Puzzle ${i + 1}`,
+            description: `Difficulty: ${settings.difficulty}`,
+            grid: g.puzzle,
+          })),
+          ...(() => {
+            const solutionPages = [];
+            for (let i = 0; i < games.length; i += 4) {
+              const pageGames = games.slice(i, i + 4);
+              solutionPages.push({
+                title: `Solutions: Puzzles ${i + 1} - ${Math.min(i + 4, games.length)}`,
+                description: `Answer Key for Sudoku Puzzles`,
+                grids: pageGames.map((g, idx) => ({
+                  grid: g.solution,
+                  title: `Puzzle ${i + idx + 1}`
+                })),
+                isSolution: true
+              });
+            }
+            return solutionPages;
+          })()
+        ]}
         onExport={handleExport}
       />
       <ConfirmationModal

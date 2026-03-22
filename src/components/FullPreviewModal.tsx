@@ -8,7 +8,10 @@ interface PreviewItem {
   content?: string;
   imageUrl?: string;
   grid?: (string | number | null)[][];
+  grids?: { grid: (string | number | null)[][]; title: string }[]; // For Sudoku solutions (4 per page)
   words?: string[];
+  highlightedCells?: { r: number; c: number }[]; // For Word Search solutions
+  isSolution?: boolean;
 }
 
 interface FullPreviewModalProps {
@@ -55,7 +58,9 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
           <div className="p-6 border-b border-border flex justify-between items-center bg-card sticky top-0 z-10">
             <div>
               <h2 className="text-2xl font-serif italic font-bold text-foreground">{title}</h2>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Full Book Preview • Page {currentPage + 1} of {items.length}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+                {currentItem.isSolution ? 'Answer Key' : 'Full Book Preview'} • Page {currentPage + 1} of {items.length}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex gap-2 mr-4 pr-4 border-r border-border">
@@ -127,14 +132,19 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
                       style={{ gridTemplateColumns: `repeat(${currentItem.grid[0].length}, minmax(0, 1fr))` }}
                     >
                       {currentItem.grid.map((row, r) => (
-                        row.map((char, c) => (
-                          <div 
-                            key={`${r}-${c}`} 
-                            className="w-4 h-4 sm:w-8 sm:h-8 flex items-center justify-center bg-background border border-border/20 font-mono font-bold text-[8px] sm:text-sm text-foreground"
-                          >
-                            {char}
-                          </div>
-                        ))
+                        row.map((char, c) => {
+                          const isHighlighted = currentItem.highlightedCells?.some(cell => cell.r === r && cell.c === c);
+                          return (
+                            <div 
+                              key={`${r}-${c}`} 
+                              className={`w-4 h-4 sm:w-8 sm:h-8 flex items-center justify-center border border-border/20 font-mono font-bold text-[8px] sm:text-sm
+                                ${isHighlighted ? 'bg-emerald-500 text-white' : 'bg-background text-foreground'}
+                              `}
+                            >
+                              {char}
+                            </div>
+                          );
+                        })
                       ))}
                     </div>
 
@@ -150,6 +160,34 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
                   </div>
                 )}
 
+                {currentItem.grids && (
+                  <div className="grid grid-cols-2 gap-4 flex-1 items-center justify-center">
+                    {currentItem.grids.map((g, i) => (
+                      <div key={i} className="space-y-1">
+                        <p className="text-[6px] sm:text-[8px] font-bold text-center uppercase tracking-widest text-muted-foreground">{g.title}</p>
+                        <div 
+                          className="grid gap-px border border-foreground/20 bg-foreground/5 p-px mx-auto w-fit" 
+                          style={{ gridTemplateColumns: `repeat(${g.grid[0].length}, minmax(0, 1fr))` }}
+                        >
+                          {g.grid.map((row, r) => (
+                            row.map((cell, c) => (
+                              <div 
+                                key={`${r}-${c}`} 
+                                className={`w-2 h-2 sm:w-4 sm:h-4 flex items-center justify-center border border-border/10 font-mono font-bold text-[4px] sm:text-[8px] bg-background text-foreground
+                                  ${(r + 1) % 3 === 0 && r < 8 ? 'border-b-foreground/20' : ''}
+                                  ${(c + 1) % 3 === 0 && c < 8 ? 'border-r-foreground/20' : ''}
+                                `}
+                              >
+                                {cell}
+                              </div>
+                            ))
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="space-y-2 sm:space-y-4 flex-1 flex flex-col justify-center overflow-hidden">
                   {currentItem.description && (
                     <p className="text-[8px] sm:text-[10px] italic text-muted-foreground text-center px-2 sm:px-4 leading-relaxed line-clamp-2 sm:line-clamp-3">
@@ -157,9 +195,9 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
                     </p>
                   )}
                   {currentItem.content && (
-                    <p className="text-[10px] sm:text-sm font-serif leading-relaxed text-center text-foreground overflow-y-auto max-h-full scrollbar-hide">
+                    <div className="text-[10px] sm:text-sm font-serif leading-relaxed text-center text-foreground overflow-y-auto max-h-full scrollbar-hide whitespace-pre-line">
                       {currentItem.content}
-                    </p>
+                    </div>
                   )}
                 </div>
               </div>

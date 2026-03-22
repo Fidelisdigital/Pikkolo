@@ -95,13 +95,27 @@ const WordSearch: React.FC = () => {
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `${settings.topic || 'WordSearch'}_Puzzle_Book`;
-    const content = puzzles.map((p, i) => ({
+    const puzzleContent = puzzles.map((p, i) => ({
       title: `Puzzle ${i + 1}: ${settings.topic}`,
       description: `Find the hidden words in the grid.`,
       grid: p.grid,
       words: p.words,
       prompt: settings.customInstructions
     }));
+
+    const solutionContent = puzzles.map((p, i) => ({
+      title: `Answer Key: Puzzle ${i + 1}`,
+      description: `Solutions for Puzzle ${i + 1}`,
+      grid: p.grid,
+      words: p.words,
+      highlightedCells: Object.values(p.placedPositions).flat(),
+      isSolution: true,
+      content: Object.entries(p.placedPositions).map(([word, pos]) => 
+        `${word.toUpperCase()}: (${pos[0].r + 1}, ${pos[0].c + 1})`
+      ).join('\n')
+    }));
+
+    const content = [...puzzleContent, ...solutionContent];
 
     try {
       if (format === 'pdf') {
@@ -315,12 +329,25 @@ const WordSearch: React.FC = () => {
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
         title={settings.topic || 'Word Search'}
-        items={puzzles.map((p, i) => ({
-          title: `Puzzle ${i + 1}: ${settings.topic}`,
-          description: `Find the hidden words in the grid.`,
-          grid: p.grid,
-          words: p.words,
-        }))}
+        items={[
+          ...puzzles.map((p, i) => ({
+            title: `Puzzle ${i + 1}: ${settings.topic}`,
+            description: `Find the hidden words in the grid.`,
+            grid: p.grid,
+            words: p.words,
+          })),
+          ...puzzles.map((p, i) => ({
+            title: `Answer Key: Puzzle ${i + 1}`,
+            description: `Solutions for Puzzle ${i + 1}`,
+            grid: p.grid,
+            words: p.words,
+            highlightedCells: Object.values(p.placedPositions).flat(),
+            isSolution: true,
+            content: Object.entries(p.placedPositions).map(([word, pos]) => 
+              `${word.toUpperCase()}: (${pos[0].r + 1}, ${pos[0].c + 1})`
+            ).join('\n')
+          }))
+        ]}
         onExport={handleExport}
       />
       <ConfirmationModal

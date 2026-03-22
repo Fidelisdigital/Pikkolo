@@ -120,11 +120,34 @@ const Trivia: React.FC = () => {
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `${settings.topic || 'Trivia'}_Trivia_Book`;
+    const puzzleContent = questions.map((q, i) => ({
+      title: `Question ${i + 1}`,
+      description: `Topic: ${settings.topic}`,
+      content: `${q.question}\n\n${q.options ? q.options.map((opt, idx) => `${String.fromCharCode(65 + idx)}) ${opt}`).join('\n') : ''}`,
+      prompt: settings.customInstructions
+    }));
+
+    const solutionPages = [];
+    const questionsPerPage = 10;
+    for (let i = 0; i < questions.length; i += questionsPerPage) {
+      const pageQuestions = questions.slice(i, i + questionsPerPage);
+      solutionPages.push({
+        title: `Answers: Questions ${i + 1} - ${Math.min(i + questionsPerPage, questions.length)}`,
+        description: `Correct Answers and Explanations`,
+        content: pageQuestions.map((q, idx) => 
+          `${i + idx + 1}. Correct Answer: ${q.answer}\nExplanation: ${q.explanation}`
+        ).join('\n\n'),
+        isSolution: true
+      });
+    }
+
+    const content = [...puzzleContent, ...solutionPages];
+
     try {
       if (format === 'pdf') {
-        await exportToPDF(title, questions, 'trivia');
+        await exportToPDF(title, content, 'trivia');
       } else {
-        await exportToDOCX(title, questions, 'trivia');
+        await exportToDOCX(title, content, 'trivia');
       }
       setToast({ message: `Exported to ${format.toUpperCase()} successfully`, type: 'success' });
     } catch (err: any) {
@@ -344,12 +367,30 @@ const Trivia: React.FC = () => {
       <FullPreviewModal 
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
-        title={settings.topic || 'Trivia'}
-        items={questions.map((q, i) => ({
-          title: `Question ${i + 1}`,
-          description: q.question,
-          content: q.options ? q.options.join('\n') : '',
-        }))}
+        title={settings.topic || 'Trivia Quiz'}
+        items={[
+          ...questions.map((q, i) => ({
+            title: `Question ${i + 1}`,
+            description: `Topic: ${settings.topic}`,
+            content: `${q.question}\n\n${q.options ? q.options.map((opt, idx) => `${String.fromCharCode(65 + idx)}) ${opt}`).join('\n') : ''}`,
+          })),
+          ...(() => {
+            const solutionPages = [];
+            const questionsPerPage = 10;
+            for (let i = 0; i < questions.length; i += questionsPerPage) {
+              const pageQuestions = questions.slice(i, i + questionsPerPage);
+              solutionPages.push({
+                title: `Answers: Questions ${i + 1} - ${Math.min(i + questionsPerPage, questions.length)}`,
+                description: `Correct Answers and Explanations`,
+                content: pageQuestions.map((q, idx) => 
+                  `${i + idx + 1}. Correct Answer: ${q.answer}\nExplanation: ${q.explanation}`
+                ).join('\n\n'),
+                isSolution: true
+              });
+            }
+            return solutionPages;
+          })()
+        ]}
         onExport={handleExport}
       />
       <ConfirmationModal

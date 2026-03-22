@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import { Grid3X3, Eye, EyeOff, RefreshCw, Download, Trash2, FileText, FileDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Grid3X3, Eye, EyeOff, RefreshCw, Download, Trash2, FileText, FileDown, Save, Check, Loader2 } from 'lucide-react';
 import { generateSudoku, SudokuDifficulty } from '../../utils/sudoku';
 import { motion } from 'motion/react';
 import { useDraft } from '../../hooks/useDraft';
+import { useAuth } from '../../hooks/useAuth';
+import { useDrafts } from '../../hooks/useDrafts';
 import { exportToPDF, exportToDOCX } from '../../services/exportService';
 
 import FullPreviewModal from '../FullPreviewModal';
 
+import { ConfirmationModal, Toast } from '../ui/Feedback';
+
 const Sudoku: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [games, setGames, clearGames] = useDraft<{ puzzle: (number | null)[][], solution: (number | null)[][] }[]>('sudoku_results', []);
   const [showSolutions, setShowSolutions] = useState(false);
@@ -20,25 +25,44 @@ const Sudoku: React.FC = () => {
     customInstructions: '',
   });
 
+  const { saveDraft, isSaving, lastSaved } = useDrafts('sudoku', `Sudoku ${settings.difficulty}`, games, settings);
+
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
   const handleClear = () => {
-    if (confirm('Are you sure you want to clear your current work?')) {
-      clearGames();
-      clearSettings();
-      setShowSolutions(false);
-    }
+    setIsClearModalOpen(true);
+  };
+
+  const confirmClear = () => {
+    clearGames();
+    clearSettings();
+    setShowSolutions(false);
+    setIsClearModalOpen(false);
   };
 
   const handleGenerate = () => {
     setLoading(true);
-    // Simulate generation delay since it's local
-    setTimeout(() => {
-      const newGames = Array.from({ length: settings.count }, () => generateSudoku(settings.difficulty));
-      setGames(newGames);
+    try {
+      // Simulate generation delay since it's local
+      setTimeout(() => {
+        try {
+          const newGames = Array.from({ length: settings.count }, () => generateSudoku(settings.difficulty));
+          setGames(newGames);
+          setToast({ message: 'Sudoku puzzles generated successfully!', type: 'success' });
+        } catch (err: any) {
+          setToast({ message: `Generation failed: ${err.message}`, type: 'error' });
+        } finally {
+          setLoading(false);
+        }
+      }, 1000);
+    } catch (error: any) {
       setLoading(false);
-    }, 1000);
+      setToast({ message: `Generation failed: ${error.message}`, type: 'error' });
+    }
   };
 
-  const handleExport = (format: 'pdf' | 'docx') => {
+  const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `Sudoku_Puzzle_Book_${settings.difficulty}`;
     const content = games.map((g, i) => ({
       title: `Puzzle ${i + 1}`,
@@ -47,10 +71,15 @@ const Sudoku: React.FC = () => {
       prompt: settings.customInstructions
     }));
 
-    if (format === 'pdf') {
-      exportToPDF(title, content, 'puzzle');
-    } else {
-      exportToDOCX(title, content, 'puzzle');
+    try {
+      if (format === 'pdf') {
+        await exportToPDF(title, content, 'puzzle');
+      } else {
+        await exportToDOCX(title, content, 'puzzle');
+      }
+      setToast({ message: `Exported to ${format.toUpperCase()} successfully`, type: 'success' });
+    } catch (err: any) {
+      setToast({ message: `Export failed: ${err.message}`, type: 'error' });
     }
   };
 
@@ -111,6 +140,17 @@ const Sudoku: React.FC = () => {
               {loading ? <RefreshCw className="animate-spin" /> : <Grid3X3 size={20} />}
               Generate Book
             </button>
+            {user && games.length > 0 && (
+              <button 
+                onClick={saveDraft}
+                disabled={isSaving}
+                className="p-3.5 bg-card border border-border rounded-xl text-foreground hover:bg-muted transition-all flex items-center gap-2"
+                title="Save Draft"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={20} /> : lastSaved ? <Check className="text-emerald-500" size={20} /> : <Save size={20} />}
+                <span className="hidden sm:inline text-sm font-bold">Save</span>
+              </button>
+            )}
             <button 
               onClick={handleClear}
               className="p-3.5 bg-card border border-border rounded-xl text-muted-foreground hover:text-destructive transition-colors"
@@ -120,6 +160,11 @@ const Sudoku: React.FC = () => {
             </button>
           </div>
         </div>
+        {lastSaved && (
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-widest font-bold">
+            Last saved at {lastSaved.toLocaleTimeString()}
+          </p>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Precise Generation Prompt</label>
@@ -238,6 +283,22 @@ const Sudoku: React.FC = () => {
         }))}
         onExport={handleExport}
       />
+      <ConfirmationModal
+        isOpen={isClearModalOpen}
+        title="Clear Draft"
+        message="Are you sure you want to clear your current work? This action cannot be undone."
+        onConfirm={confirmClear}
+        onCancel={() => setIsClearModalOpen(false)}
+        variant="danger"
+        confirmText="Clear Everything"
+      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

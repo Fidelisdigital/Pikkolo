@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
-import { Sparkles, Loader2, Download, Copy, Check, Trash2, FileText, FileDown, Image as ImageIcon, RefreshCw, Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Loader2, Download, Copy, Check, Trash2, FileText, FileDown, Image as ImageIcon, RefreshCw, Eye, Save } from 'lucide-react';
 import { generateJSON, generateImage } from '../../services/ai';
 import { Type } from '@google/genai';
 import { motion } from 'motion/react';
 import { useDraft } from '../../hooks/useDraft';
+import { useAuth } from '../../hooks/useAuth';
+import { useDrafts } from '../../hooks/useDrafts';
+import { supabase } from '../../services/supabase';
 import { exportToPDF, exportToDOCX } from '../../services/exportService';
 import FullPreviewModal from '../FullPreviewModal';
+
+import { ConfirmationModal, Toast } from '../ui/Feedback';
 
 interface ColoringPage {
   title: string;
@@ -16,10 +21,12 @@ interface ColoringPage {
 }
 
 const ColoringBooks: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [pages, setPages, clearPages] = useDraft<ColoringPage[]>('coloring_books_result', []);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
 
   const [settings, setSettings, clearSettings] = useDraft('coloring_books_settings', {
     theme: '',
@@ -29,11 +36,37 @@ const ColoringBooks: React.FC = () => {
     customInstructions: '',
   });
 
-  const handleClear = () => {
-    if (confirm('Are you sure you want to clear your current work?')) {
-      clearPages();
-      clearSettings();
+  const { saveDraft, isSaving, lastSaved } = useDrafts('coloring-books', settings.theme || 'Untitled Coloring Book', pages, settings);
+
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const saveProgress = async () => {
+    if (!user || pages.length === 0) return;
+    setIsSavingProgress(true);
+    try {
+      const { error } = await supabase.from('coloring_progress').insert({
+        user_id: user.id,
+        page_data: pages,
+        created_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      setToast({ message: 'Progress saved successfully!', type: 'success' });
+    } catch (err: any) {
+      setToast({ message: 'Error saving progress: ' + err.message, type: 'error' });
+    } finally {
+      setIsSavingProgress(false);
     }
+  };
+
+  const handleClear = () => {
+    setIsClearModalOpen(true);
+  };
+
+  const confirmClear = () => {
+    clearPages();
+    clearSettings();
+    setIsClearModalOpen(false);
   };
 
   const handleGenerate = async () => {
@@ -60,10 +93,16 @@ const ColoringBooks: React.FC = () => {
     };
 
     try {
+      if (!settings.theme) {
+        setToast({ message: 'Please enter a theme first', type: 'error' });
+        return;
+      }
       const result = await generateJSON<ColoringPage[]>(prompt, schema, "You are a professional coloring book designer and AI prompt engineer.");
       setPages(result);
-    } catch (error) {
+      setToast({ message: 'Coloring book pages generated successfully!', type: 'success' });
+    } catch (error: any) {
       console.error(error);
+      setToast({ message: `Generation failed: ${error.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -75,17 +114,22 @@ const ColoringBooks: React.FC = () => {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const handleExport = (format: 'pdf' | 'docx') => {
+  const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `${settings.theme || 'Coloring_Book'}_Coloring_Book`;
     const content = pages.map(p => ({
       title: p.title,
       description: p.description,
       imageUrl: p.imageUrl,
     }));
-    if (format === 'pdf') {
-      exportToPDF(title, content, 'coloring');
-    } else {
-      exportToDOCX(title, content, 'coloring');
+    try {
+      if (format === 'pdf') {
+        await exportToPDF(title, content, 'coloring');
+      } else {
+        await exportToDOCX(title, content, 'coloring');
+      }
+      setToast({ message: `Exported to ${format.toUpperCase()} successfully`, type: 'success' });
+    } catch (err: any) {
+      setToast({ message: `Export failed: ${err.message}`, type: 'error' });
     }
   };
 
@@ -102,11 +146,13 @@ const ColoringBooks: React.FC = () => {
       const updatedPages = [...pages];
       updatedPages[index] = { ...page, imageUrl, isGeneratingImage: false };
       setPages(updatedPages);
-    } catch (error) {
+      setToast({ message: 'Image generated successfully!', type: 'success' });
+    } catch (error: any) {
       console.error("Failed to generate image:", error);
       const resetPages = [...pages];
       resetPages[index] = { ...page, isGeneratingImage: false };
       setPages(resetPages);
+      setToast({ message: `Image generation failed: ${error.message || 'Unknown error'}`, type: 'error' });
     }
   };
 
@@ -186,6 +232,28 @@ const ColoringBooks: React.FC = () => {
             {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
             Generate Book
           </button>
+          {user && pages.length > 0 && (
+            <>
+              <button 
+                onClick={saveDraft}
+                disabled={isSaving}
+                className="p-3.5 bg-card border border-border rounded-xl text-foreground hover:bg-muted transition-all flex items-center gap-2"
+                title="Save Draft"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={20} /> : lastSaved ? <Check className="text-emerald-500" size={20} /> : <Save size={20} />}
+                <span className="hidden sm:inline text-sm font-bold">Save</span>
+              </button>
+              <button 
+                onClick={saveProgress}
+                disabled={isSavingProgress}
+                className="p-3.5 bg-primary/10 text-primary border border-primary/20 rounded-xl font-bold hover:bg-primary/20 transition-all flex items-center gap-2"
+                title="Save Coloring Progress"
+              >
+                {isSavingProgress ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                <span className="hidden sm:inline text-sm font-bold">Save Progress</span>
+              </button>
+            </>
+          )}
           <button 
             onClick={handleClear}
             className="p-3.5 bg-card border border-border rounded-xl text-muted-foreground hover:text-destructive transition-colors"
@@ -194,6 +262,11 @@ const ColoringBooks: React.FC = () => {
             <Trash2 size={20} />
           </button>
         </div>
+        {lastSaved && (
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-widest font-bold">
+            Last saved at {lastSaved.toLocaleTimeString()}
+          </p>
+        )}
       </div>
 
       {pages.length > 0 && (
@@ -234,7 +307,7 @@ const ColoringBooks: React.FC = () => {
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                       <button 
                         onClick={() => generatePageImage(i)}
-                        className="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform"
+                        className="p-3 bg-primary text-primary-foreground rounded-full hover:scale-110 transition-transform shadow-lg"
                         title="Regenerate Image"
                       >
                         <RefreshCw size={20} className={page.isGeneratingImage ? 'animate-spin' : ''} />
@@ -296,6 +369,22 @@ const ColoringBooks: React.FC = () => {
         }))}
         onExport={handleExport}
       />
+      <ConfirmationModal
+        isOpen={isClearModalOpen}
+        title="Clear Draft"
+        message="Are you sure you want to clear your current work? This action cannot be undone."
+        onConfirm={confirmClear}
+        onCancel={() => setIsClearModalOpen(false)}
+        variant="danger"
+        confirmText="Clear Everything"
+      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

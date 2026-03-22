@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
-import { Sparkles, Loader2, HelpCircle, CheckCircle2, XCircle, Trash2, FileText, FileDown, Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Loader2, HelpCircle, CheckCircle2, XCircle, Trash2, FileText, FileDown, Eye, Save, Check, Trophy } from 'lucide-react';
 import { generateJSON } from '../../services/ai';
 import { Type } from '@google/genai';
 import { motion } from 'motion/react';
 import { useDraft } from '../../hooks/useDraft';
+import { useAuth } from '../../hooks/useAuth';
+import { useDrafts } from '../../hooks/useDrafts';
+import { supabase } from '../../services/supabase';
 import { exportToPDF, exportToDOCX } from '../../services/exportService';
-
 import FullPreviewModal from '../FullPreviewModal';
+
+import { ConfirmationModal, Toast } from '../ui/Feedback';
 
 interface Question {
   question: string;
@@ -16,10 +20,12 @@ interface Question {
 }
 
 const Trivia: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions, clearQuestions] = useDraft<Question[]>('trivia_result', []);
   const [showAnswers, setShowAnswers] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSavingScore, setIsSavingScore] = useState(false);
 
   const [settings, setSettings, clearSettings] = useDraft('trivia_settings', {
     topic: '',
@@ -30,12 +36,41 @@ const Trivia: React.FC = () => {
     customInstructions: '',
   });
 
-  const handleClear = () => {
-    if (confirm('Are you sure you want to clear your current work?')) {
-      clearQuestions();
-      clearSettings();
-      setShowAnswers(false);
+  const { saveDraft, isSaving, lastSaved } = useDrafts('trivia', settings.topic || 'Untitled Trivia', questions, settings);
+
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const submitScore = async () => {
+    if (!user || questions.length === 0) return;
+    setIsSavingScore(true);
+    try {
+      // Simulate a score based on number of questions generated
+      const score = questions.length * 10; 
+      const { error } = await supabase.from('quiz_scores').insert({
+        user_id: user.id,
+        score,
+        category: settings.topic || 'General',
+        created_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      setToast({ message: `Score of ${score} submitted to leaderboard!`, type: 'success' });
+    } catch (err: any) {
+      setToast({ message: 'Error submitting score: ' + err.message, type: 'error' });
+    } finally {
+      setIsSavingScore(false);
     }
+  };
+
+  const handleClear = () => {
+    setIsClearModalOpen(true);
+  };
+
+  const confirmClear = () => {
+    clearQuestions();
+    clearSettings();
+    setShowAnswers(false);
+    setIsClearModalOpen(false);
   };
 
   const handleGenerate = async () => {
@@ -67,22 +102,33 @@ const Trivia: React.FC = () => {
     };
 
     try {
+      if (!settings.topic) {
+        setToast({ message: 'Please enter a topic first', type: 'error' });
+        return;
+      }
       const result = await generateJSON<Question[]>(prompt, schema, "You are a trivia master.");
       setQuestions(result);
       setShowAnswers(false);
-    } catch (error) {
+      setToast({ message: 'Trivia questions generated successfully!', type: 'success' });
+    } catch (error: any) {
       console.error(error);
+      setToast({ message: `Generation failed: ${error.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExport = (format: 'pdf' | 'docx') => {
+  const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `${settings.topic || 'Trivia'}_Trivia_Book`;
-    if (format === 'pdf') {
-      exportToPDF(title, questions, 'trivia');
-    } else {
-      exportToDOCX(title, questions, 'trivia');
+    try {
+      if (format === 'pdf') {
+        await exportToPDF(title, questions, 'trivia');
+      } else {
+        await exportToDOCX(title, questions, 'trivia');
+      }
+      setToast({ message: `Exported to ${format.toUpperCase()} successfully`, type: 'success' });
+    } catch (err: any) {
+      setToast({ message: `Export failed: ${err.message}`, type: 'error' });
     }
   };
 
@@ -176,6 +222,28 @@ const Trivia: React.FC = () => {
             {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
             Generate Book
           </button>
+          {user && questions.length > 0 && (
+            <>
+              <button 
+                onClick={saveDraft}
+                disabled={isSaving}
+                className="p-3.5 bg-card border border-border rounded-xl text-foreground hover:bg-muted transition-all flex items-center gap-2"
+                title="Save Draft"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={20} /> : lastSaved ? <Check className="text-emerald-500" size={20} /> : <Save size={20} />}
+                <span className="hidden sm:inline text-sm font-bold">Save</span>
+              </button>
+              <button 
+                onClick={submitScore}
+                disabled={isSavingScore}
+                className="p-3.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-xl font-bold hover:bg-amber-500/20 transition-all flex items-center gap-2"
+                title="Submit Score to Leaderboard"
+              >
+                {isSavingScore ? <Loader2 className="animate-spin" size={20} /> : <Trophy size={20} />}
+                <span className="hidden sm:inline text-sm font-bold">Submit Score</span>
+              </button>
+            </>
+          )}
           <button 
             onClick={handleClear}
             className="p-3.5 bg-card border border-border rounded-xl text-muted-foreground hover:text-destructive transition-colors"
@@ -184,6 +252,11 @@ const Trivia: React.FC = () => {
             <Trash2 size={20} />
           </button>
         </div>
+        {lastSaved && (
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-widest font-bold">
+            Last saved at {lastSaved.toLocaleTimeString()}
+          </p>
+        )}
       </div>
 
       {questions.length > 0 && (
@@ -279,6 +352,22 @@ const Trivia: React.FC = () => {
         }))}
         onExport={handleExport}
       />
+      <ConfirmationModal
+        isOpen={isClearModalOpen}
+        title="Clear Draft"
+        message="Are you sure you want to clear your current work? This action cannot be undone."
+        onConfirm={confirmClear}
+        onCancel={() => setIsClearModalOpen(false)}
+        variant="danger"
+        confirmText="Clear Everything"
+      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

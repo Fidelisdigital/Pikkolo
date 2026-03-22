@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, ChevronRight, ChevronLeft, Download, User, BookOpen, Trash2, FileText, FileDown, Image as ImageIcon, RefreshCw, Eye } from 'lucide-react';
+import { Sparkles, Loader2, ChevronRight, ChevronLeft, Download, User, BookOpen, Trash2, FileText, FileDown, Image as ImageIcon, RefreshCw, Eye, Save, Check } from 'lucide-react';
 import { generateJSON, generateImage } from '../../services/ai';
 import { Type } from '@google/genai';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDraft } from '../../hooks/useDraft';
+import { useAuth } from '../../hooks/useAuth';
+import { useDrafts } from '../../hooks/useDrafts';
 import { exportToPDF, exportToDOCX } from '../../services/exportService';
 import FullPreviewModal from '../FullPreviewModal';
+
+import { ConfirmationModal, Toast } from '../ui/Feedback';
 
 interface Page {
   pageNumber: number;
@@ -21,6 +25,7 @@ interface Book {
 }
 
 const KidsBooks: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [book, setBook, clearBook] = useDraft<Book | null>('kids_books_result', null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -36,12 +41,20 @@ const KidsBooks: React.FC = () => {
     customInstructions: '',
   });
 
+  const { saveDraft, isSaving, lastSaved } = useDrafts('kids-books', book?.title || settings.topic || 'Untitled Book', book, settings);
+
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
   const handleClear = () => {
-    if (confirm('Are you sure you want to clear your current work?')) {
-      clearBook();
-      clearSettings();
-      setCurrentPage(0);
-    }
+    setIsClearModalOpen(true);
+  };
+
+  const confirmClear = () => {
+    clearBook();
+    clearSettings();
+    setCurrentPage(0);
+    setIsClearModalOpen(false);
   };
 
   const handleGenerate = async () => {
@@ -80,17 +93,23 @@ const KidsBooks: React.FC = () => {
     };
 
     try {
+      if (!settings.topic) {
+        setToast({ message: 'Please enter a topic first', type: 'error' });
+        return;
+      }
       const result = await generateJSON<Book>(prompt, schema, "You are a professional children's book author and illustrator prompt engineer.");
       setBook(result);
       setCurrentPage(0);
-    } catch (error) {
+      setToast({ message: 'Story generated successfully!', type: 'success' });
+    } catch (error: any) {
       console.error(error);
+      setToast({ message: `Generation failed: ${error.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExport = (format: 'pdf' | 'docx') => {
+  const handleExport = async (format: 'pdf' | 'docx') => {
     if (!book) return;
     const title = book.title || 'Kids_Book';
     const content = book.pages.map(p => ({
@@ -100,10 +119,15 @@ const KidsBooks: React.FC = () => {
       imageUrl: p.imageUrl,
     }));
 
-    if (format === 'pdf') {
-      exportToPDF(title, content, 'book');
-    } else {
-      exportToDOCX(title, content, 'book');
+    try {
+      if (format === 'pdf') {
+        await exportToPDF(title, content, 'book');
+      } else {
+        await exportToDOCX(title, content, 'book');
+      }
+      setToast({ message: `Exported to ${format.toUpperCase()} successfully`, type: 'success' });
+    } catch (err: any) {
+      setToast({ message: `Export failed: ${err.message}`, type: 'error' });
     }
   };
 
@@ -121,11 +145,13 @@ const KidsBooks: React.FC = () => {
       const updatedPages = [...book.pages];
       updatedPages[index] = { ...page, imageUrl, isGeneratingImage: false };
       setBook({ ...book, pages: updatedPages });
-    } catch (error) {
+      setToast({ message: 'Illustration generated successfully!', type: 'success' });
+    } catch (error: any) {
       console.error("Failed to generate image:", error);
       const resetPages = [...book.pages];
       resetPages[index] = { ...page, isGeneratingImage: false };
       setBook({ ...book, pages: resetPages });
+      setToast({ message: `Illustration generation failed: ${error.message || 'Unknown error'}`, type: 'error' });
     }
   };
 
@@ -244,6 +270,17 @@ const KidsBooks: React.FC = () => {
               {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
               Generate Story
             </button>
+            {user && book && (
+              <button 
+                onClick={saveDraft}
+                disabled={isSaving}
+                className="p-4 bg-card border border-border rounded-2xl text-foreground hover:bg-muted transition-all flex items-center gap-2"
+                title="Save Draft"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={20} /> : lastSaved ? <Check className="text-emerald-500" size={20} /> : <Save size={20} />}
+                <span className="hidden sm:inline text-sm font-bold">Save</span>
+              </button>
+            )}
             <button 
               onClick={handleClear}
               className="p-4 bg-card border border-border rounded-2xl text-muted-foreground hover:text-destructive transition-colors"
@@ -252,6 +289,11 @@ const KidsBooks: React.FC = () => {
               <Trash2 size={20} />
             </button>
           </div>
+          {lastSaved && (
+            <p className="text-[10px] text-muted-foreground text-center uppercase tracking-widest font-bold">
+              Last saved at {lastSaved.toLocaleTimeString()}
+            </p>
+          )}
         </div>
 
         {/* Preview */}
@@ -305,13 +347,13 @@ const KidsBooks: React.FC = () => {
                             <img 
                               src={book.pages[currentPage].imageUrl} 
                               alt={`Illustration for page ${currentPage + 1}`} 
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                               referrerPolicy="no-referrer"
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                               <button 
                                 onClick={() => generatePageImage(currentPage)}
-                                className="p-4 bg-white text-black rounded-full hover:scale-110 transition-transform"
+                                className="p-4 bg-primary text-primary-foreground rounded-full hover:scale-110 transition-transform shadow-lg"
                                 title="Regenerate Illustration"
                               >
                                 <RefreshCw size={24} className={book.pages[currentPage].isGeneratingImage ? 'animate-spin' : ''} />
@@ -389,6 +431,22 @@ const KidsBooks: React.FC = () => {
         })) || []}
         onExport={handleExport}
       />
+      <ConfirmationModal
+        isOpen={isClearModalOpen}
+        title="Clear Draft"
+        message="Are you sure you want to clear your current work? This action cannot be undone."
+        onConfirm={confirmClear}
+        onCancel={() => setIsClearModalOpen(false)}
+        variant="danger"
+        confirmText="Clear Everything"
+      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

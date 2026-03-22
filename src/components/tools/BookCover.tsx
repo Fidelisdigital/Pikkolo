@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { useDraft } from '../../hooks/useDraft';
 import { generateImage } from '../../services/ai';
 
+import { ConfirmationModal } from '../ui/Feedback';
+
 const colorSchemes = [
   { name: 'Classic', primary: '#1A1A1A', secondary: '#FDFCFB', accent: '#F27D26' },
   { name: 'Midnight', primary: '#0F172A', secondary: '#F8FAFC', accent: '#38BDF8' },
@@ -24,16 +26,21 @@ const BookCover: React.FC = () => {
   const [bgImage, setBgImage, clearBgImage] = useDraft<string | null>('book_cover_bg_image', null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
   const handleClear = () => {
-    if (confirm('Are you sure you want to reset the cover?')) {
-      clearTitle();
-      clearAuthor();
-      clearScheme();
-      clearLayout();
-      clearBgPrompt();
-      clearCustomInstructions();
-      clearBgImage();
-    }
+    setIsResetModalOpen(true);
+  };
+
+  const confirmReset = () => {
+    clearTitle();
+    clearAuthor();
+    clearScheme();
+    clearLayout();
+    clearBgPrompt();
+    clearCustomInstructions();
+    clearBgImage();
+    setIsResetModalOpen(false);
   };
 
   useEffect(() => {
@@ -279,6 +286,15 @@ const BookCover: React.FC = () => {
           </div>
         </div>
       </div>
+      <ConfirmationModal
+        isOpen={isResetModalOpen}
+        title="Reset Cover"
+        message="Are you sure you want to reset the cover? This will clear all fields and the background image."
+        onConfirm={confirmReset}
+        onCancel={() => setIsResetModalOpen(false)}
+        variant="danger"
+        confirmText="Reset Now"
+      />
     </div>
   );
 };

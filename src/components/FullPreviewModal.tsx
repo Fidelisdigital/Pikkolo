@@ -83,54 +83,54 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden relative bg-muted/30 flex items-center justify-center p-8">
+          <div className="flex-1 overflow-y-auto relative bg-muted/30 flex items-center justify-center p-4 sm:p-8">
             {/* Navigation Buttons */}
             <button 
               onClick={handlePrev}
               disabled={currentPage === 0}
-              className="absolute left-4 z-20 p-4 bg-card border border-border rounded-full shadow-lg text-foreground hover:bg-muted disabled:opacity-30 transition-all"
+              className="absolute left-2 sm:left-4 z-20 p-2 sm:p-4 bg-card border border-border rounded-full shadow-lg text-foreground hover:bg-muted disabled:opacity-30 transition-all"
             >
-              <ChevronLeft size={24} />
+              <ChevronLeft size={20} className="sm:w-6 sm:h-6" />
             </button>
             
             <button 
               onClick={handleNext}
               disabled={currentPage === items.length - 1}
-              className="absolute right-4 z-20 p-4 bg-card border border-border rounded-full shadow-lg text-foreground hover:bg-muted disabled:opacity-30 transition-all"
+              className="absolute right-2 sm:right-4 z-20 p-2 sm:p-4 bg-card border border-border rounded-full shadow-lg text-foreground hover:bg-muted disabled:opacity-30 transition-all"
             >
-              <ChevronRight size={24} />
+              <ChevronRight size={20} className="sm:w-6 sm:h-6" />
             </button>
 
             {/* Page Container (Fixed Aspect Ratio to mimic paper) */}
-            <div className="bg-card w-full max-w-[500px] aspect-[8.5/11] shadow-2xl rounded-sm border border-border flex flex-col p-12 relative overflow-hidden">
-              <div className="flex-1 flex flex-col space-y-8">
-                <div className="flex justify-between items-center border-b border-border/10 pb-4">
-                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">Page {currentPage + 1}</span>
-                  <h4 className="font-bold text-sm text-foreground uppercase tracking-widest">{currentItem.title}</h4>
+            <div className="bg-card w-full max-w-[95%] sm:max-w-[500px] aspect-[210/297] shadow-2xl rounded-sm border border-border flex flex-col p-4 sm:p-12 relative overflow-hidden my-4">
+              <div className="flex-1 flex flex-col space-y-3 sm:space-y-6 overflow-hidden">
+                <div className="flex justify-between items-center border-b border-border/10 pb-1 sm:pb-4">
+                  <span className="text-[6px] sm:text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">Page {currentPage + 1}</span>
+                  <h4 className="font-bold text-[8px] sm:text-sm text-foreground uppercase tracking-widest truncate max-w-[100px] sm:max-w-[200px]">{currentItem.title}</h4>
                 </div>
 
                 {currentItem.imageUrl && (
-                  <div className="aspect-square w-full bg-muted rounded-xl overflow-hidden border border-border/5">
+                  <div className="aspect-[4/3] w-full bg-muted rounded-md sm:rounded-xl overflow-hidden border border-border/5 flex items-center justify-center flex-shrink-0">
                     <img 
                       src={currentItem.imageUrl} 
                       alt={currentItem.title} 
-                      className="w-full h-full object-cover"
+                      className="max-w-full max-h-full object-contain"
                       referrerPolicy="no-referrer"
                     />
                   </div>
                 )}
 
                 {currentItem.grid && (
-                  <div className="flex-1 flex flex-col items-center justify-center space-y-8">
+                  <div className="flex-1 flex flex-col items-center justify-center space-y-2 sm:space-y-6 overflow-hidden">
                     <div 
-                      className="grid gap-0.5 border-2 border-foreground/20 bg-foreground/5 p-1 rounded-sm" 
+                      className="grid gap-0.5 border border-foreground/20 bg-foreground/5 p-0.5 sm:p-1 rounded-sm overflow-auto max-w-full" 
                       style={{ gridTemplateColumns: `repeat(${currentItem.grid[0].length}, minmax(0, 1fr))` }}
                     >
                       {currentItem.grid.map((row, r) => (
                         row.map((char, c) => (
                           <div 
                             key={`${r}-${c}`} 
-                            className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-background border border-border/20 font-mono font-bold text-xs sm:text-sm text-foreground"
+                            className="w-4 h-4 sm:w-8 sm:h-8 flex items-center justify-center bg-background border border-border/20 font-mono font-bold text-[8px] sm:text-sm text-foreground"
                           >
                             {char}
                           </div>
@@ -139,9 +139,9 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
                     </div>
 
                     {currentItem.words && (
-                      <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 max-w-sm">
+                      <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 max-w-full overflow-hidden">
                         {currentItem.words.map((word, i) => (
-                          <span key={i} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          <span key={i} className="text-[6px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                             {word}
                           </span>
                         ))}
@@ -150,12 +150,14 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
                   </div>
                 )}
 
-                <div className="space-y-6 flex-1 flex flex-col justify-center">
-                  <p className="text-xs italic text-muted-foreground text-center px-4 leading-relaxed">
-                    {currentItem.description}
-                  </p>
+                <div className="space-y-2 sm:space-y-4 flex-1 flex flex-col justify-center overflow-hidden">
+                  {currentItem.description && (
+                    <p className="text-[8px] sm:text-[10px] italic text-muted-foreground text-center px-2 sm:px-4 leading-relaxed line-clamp-2 sm:line-clamp-3">
+                      {currentItem.description}
+                    </p>
+                  )}
                   {currentItem.content && (
-                    <p className="text-lg font-serif leading-relaxed text-center text-foreground">
+                    <p className="text-[10px] sm:text-sm font-serif leading-relaxed text-center text-foreground overflow-y-auto max-h-full scrollbar-hide">
                       {currentItem.content}
                     </p>
                   )}
@@ -163,8 +165,8 @@ const FullPreviewModal: React.FC<FullPreviewModalProps> = ({ isOpen, onClose, ti
               </div>
               
               {/* Page Number Footer */}
-              <div className="mt-8 text-center border-t border-border/10 pt-4">
-                <span className="text-xs font-serif italic text-muted-foreground">-{currentPage + 1}-</span>
+              <div className="mt-2 sm:mt-6 text-center border-t border-border/10 pt-2 sm:pt-4">
+                <span className="text-[8px] sm:text-xs font-serif italic text-muted-foreground">-{currentPage + 1}-</span>
               </div>
             </div>
           </div>

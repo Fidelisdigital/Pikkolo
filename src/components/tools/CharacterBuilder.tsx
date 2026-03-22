@@ -4,6 +4,8 @@ import { generateContent } from '../../services/ai';
 import { motion } from 'motion/react';
 import { useDraft } from '../../hooks/useDraft';
 
+import { ConfirmationModal } from '../ui/Feedback';
+
 const CharacterBuilder: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [character, setCharacter, clearCharacter] = useDraft('character_builder_draft', {
@@ -21,10 +23,15 @@ const CharacterBuilder: React.FC = () => {
     if (saved) setSavedPrompt(saved);
   }, []);
 
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
   const handleResetForm = () => {
-    if (confirm('Are you sure you want to reset the character form?')) {
-      clearCharacter();
-    }
+    setIsResetModalOpen(true);
+  };
+
+  const confirmReset = () => {
+    clearCharacter();
+    setIsResetModalOpen(false);
   };
 
   const handleGenerateDescription = async () => {
@@ -189,6 +196,15 @@ const CharacterBuilder: React.FC = () => {
           )}
         </div>
       </div>
+      <ConfirmationModal
+        isOpen={isResetModalOpen}
+        title="Reset Form"
+        message="Are you sure you want to reset the character form? This will clear all fields."
+        onConfirm={confirmReset}
+        onCancel={() => setIsResetModalOpen(false)}
+        variant="danger"
+        confirmText="Reset Now"
+      />
     </div>
   );
 };

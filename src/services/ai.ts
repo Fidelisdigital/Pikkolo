@@ -8,6 +8,7 @@ export const imageModel = "gemini-2.5-flash-image";
 
 export async function generateImage(prompt: string): Promise<string> {
   try {
+    console.log("Generating image with prompt:", prompt);
     const response = await ai.models.generateContent({
       model: imageModel,
       contents: {
@@ -15,15 +16,28 @@ export async function generateImage(prompt: string): Promise<string> {
       },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (!response.candidates || response.candidates.length === 0) {
+      throw new Error("No candidates returned from Gemini Image API");
+    }
+
+    const candidate = response.candidates[0];
+    if (candidate.finishReason && candidate.finishReason !== "STOP") {
+      throw new Error(`Image generation failed with reason: ${candidate.finishReason}`);
+    }
+
+    for (const part of candidate.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data found in response");
+    throw new Error("No image data found in response parts");
   } catch (error: any) {
-    console.error("Gemini Image API Error:", error);
-    throw error;
+    console.error("Gemini Image API Error Details:", {
+      message: error.message,
+      stack: error.stack,
+      prompt
+    });
+    throw new Error(`Image generation failed: ${error.message || 'Unknown error'}`);
   }
 }
 

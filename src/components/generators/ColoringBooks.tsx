@@ -75,7 +75,8 @@ const ColoringBooks: React.FC = () => {
     Complexity level: ${settings.complexity}. 
     Paper Size: ${settings.paperSize}.
     ${settings.customInstructions ? `Additional Instructions: ${settings.customInstructions}` : ''}
-    Each page should have a title, a brief description for the user, and a highly detailed AI image generation prompt optimized for black and white line art.
+    Each page should have a title, a brief description for the user, and a highly detailed AI image generation prompt.
+    The image generation prompt MUST strictly request clean black and white line art, no shading, no colors, high contrast, bold outlines, suitable for coloring.
     
     Return a JSON array of objects with title, description, and prompt.`;
 

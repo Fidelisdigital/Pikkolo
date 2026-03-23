@@ -120,15 +120,22 @@ const Trivia: React.FC = () => {
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     const title = `${settings.topic || 'Trivia'}_Trivia_Book`;
-    const puzzleContent = questions.map((q, i) => ({
-      title: `Question ${i + 1}`,
-      description: `Topic: ${settings.topic}`,
-      content: `${q.question}\n\n${q.options ? q.options.map((opt, idx) => `${String.fromCharCode(65 + idx)}) ${opt}`).join('\n') : ''}`,
-      prompt: settings.customInstructions
-    }));
+    
+    const questionsPerPage = 10;
+    const puzzleContent = [];
+    for (let i = 0; i < questions.length; i += questionsPerPage) {
+      const pageQuestions = questions.slice(i, i + questionsPerPage);
+      puzzleContent.push({
+        title: `Questions: ${i + 1} - ${Math.min(i + questionsPerPage, questions.length)}`,
+        description: `Topic: ${settings.topic}`,
+        content: pageQuestions.map((q, idx) => 
+          `${i + idx + 1}. ${q.question}\n${q.options ? q.options.map((opt, oIdx) => `   ${String.fromCharCode(65 + oIdx)}) ${opt}`).join('\n') : ''}`
+        ).join('\n\n'),
+        prompt: settings.customInstructions
+      });
+    }
 
     const solutionPages = [];
-    const questionsPerPage = 10;
     for (let i = 0; i < questions.length; i += questionsPerPage) {
       const pageQuestions = questions.slice(i, i + questionsPerPage);
       solutionPages.push({
@@ -369,11 +376,21 @@ const Trivia: React.FC = () => {
         onClose={() => setIsPreviewOpen(false)}
         title={settings.topic || 'Trivia Quiz'}
         items={[
-          ...questions.map((q, i) => ({
-            title: `Question ${i + 1}`,
-            description: `Topic: ${settings.topic}`,
-            content: `${q.question}\n\n${q.options ? q.options.map((opt, idx) => `${String.fromCharCode(65 + idx)}) ${opt}`).join('\n') : ''}`,
-          })),
+          ...(() => {
+            const pages = [];
+            const questionsPerPage = 10;
+            for (let i = 0; i < questions.length; i += questionsPerPage) {
+              const pageQuestions = questions.slice(i, i + questionsPerPage);
+              pages.push({
+                title: `Questions: ${i + 1} - ${Math.min(i + questionsPerPage, questions.length)}`,
+                description: `Topic: ${settings.topic}`,
+                content: pageQuestions.map((q, idx) => 
+                  `${i + idx + 1}. ${q.question}\n${q.options ? q.options.map((opt, oIdx) => `   ${String.fromCharCode(65 + oIdx)}) ${opt}`).join('\n') : ''}`
+                ).join('\n\n')
+              });
+            }
+            return pages;
+          })(),
           ...(() => {
             const solutionPages = [];
             const questionsPerPage = 10;

@@ -24,7 +24,13 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, initialMode = 'login' })
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            redirectTo: import.meta.env.VITE_APP_URL || window.location.origin
+          }
+        });
         if (error) throw error;
         setToast({ message: 'Check your email for the confirmation link!', type: 'success' });
       } else {

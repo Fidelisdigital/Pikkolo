@@ -15,8 +15,10 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
   const pageHeight = doc.internal.pageSize.getHeight();
   const contentWidth = pageWidth - (margin * 2);
 
+  // Main Title
+  doc.setFont('times', 'bold');
   doc.setFontSize(22);
-  doc.text(title, margin, y);
+  doc.text(title, pageWidth / 2, y, { align: 'center' });
   y += 20;
 
   if (type === 'book' || type === 'coloring') {
@@ -28,7 +30,7 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
       
       // Page Number Footer
       doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
+      doc.setFont('times', 'italic');
       doc.setTextColor(150, 150, 150);
       doc.text(`- ${index + 1} -`, pageWidth / 2, pageHeight - 10, { align: 'center' });
       doc.setTextColor(0, 0, 0);
@@ -54,8 +56,8 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
             doc.addImage(item.imageUrl, 'PNG', xPos, yPos, finalImgWidth, finalImgHeight);
             
             // Title below image
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.setFont('times', 'bold');
             doc.text(item.title || 'Coloring Page', pageWidth / 2, yPos + finalImgHeight + 15, { align: 'center' });
           } catch (e) {
             console.error("Error adding coloring image to PDF:", e);
@@ -77,23 +79,23 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
         }
 
         if (item.title) {
-          doc.setFontSize(18);
-          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(16);
+          doc.setFont('times', 'bold');
           doc.text(item.title, pageWidth / 2, y, { align: 'center' });
           y += 12;
         }
 
         if (item.content) {
-          doc.setFontSize(14);
+          doc.setFontSize(12);
           doc.setFont('times', 'normal');
           const splitContent = doc.splitTextToSize(item.content, contentWidth);
           
           // Handle overflow
           let remainingLines = [...splitContent];
           while (remainingLines.length > 0) {
-            const linesPerPage = Math.floor((pageHeight - margin - y - 15) / 8);
+            const linesPerPage = Math.floor((pageHeight - margin - y - 15) / 6); // 6mm per line for size 12
             const part = remainingLines.slice(0, linesPerPage);
-            doc.text(part, pageWidth / 2, y, { align: 'center' });
+            doc.text(part, margin, y);
             remainingLines = remainingLines.slice(linesPerPage);
             
             if (remainingLines.length > 0) {
@@ -101,11 +103,11 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
               y = margin;
               // Page Number Footer for cont.
               doc.setFontSize(10);
-              doc.setFont('helvetica', 'italic');
+              doc.setFont('times', 'italic');
               doc.setTextColor(150, 150, 150);
               doc.text(`- ${index + 1} (cont.) -`, pageWidth / 2, pageHeight - 10, { align: 'center' });
               doc.setTextColor(0, 0, 0);
-              doc.setFontSize(14);
+              doc.setFontSize(12);
               doc.setFont('times', 'normal');
             }
           }
@@ -113,42 +115,59 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
       }
     }
   } else if (type === 'trivia' || type === 'puzzle') {
-    content.forEach((item, index) => {
-      if (index > 0) {
-        doc.addPage();
-      }
-      y = margin;
+    let pageNum = 1;
+    y = 40; // Start after main title
 
-      // Page Number Footer
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(150, 150, 150);
-      doc.text(`- ${index + 1} -`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      doc.setTextColor(0, 0, 0);
+    content.forEach((item, index) => {
+      // Estimate height needed for this item
+      let estimatedHeight = 0;
+      if (item.title) estimatedHeight += 15;
+      if (item.description) estimatedHeight += 15;
+      if (item.grid) estimatedHeight += 100; // Puzzles usually take more space
+      if (item.grids) estimatedHeight += 150; // Sudoku solutions
+      if (item.content) {
+        const splitContent = doc.splitTextToSize(item.content, contentWidth);
+        estimatedHeight += (splitContent.length * 6) + 10;
+      }
+      if (item.words) estimatedHeight += 20;
+
+      // Check if we need a new page (except for the very first item on the first page)
+      if (y + estimatedHeight > pageHeight - margin - 10) {
+        // Footer for current page
+        doc.setFontSize(10);
+        doc.setFont('times', 'italic');
+        doc.setTextColor(150, 150, 150);
+        doc.text(`- ${pageNum} -`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+
+        doc.addPage();
+        y = margin;
+        pageNum++;
+      }
 
       if (item.isSolution) {
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.setFont('times', 'bold');
         doc.text(item.title || 'Answer Key', pageWidth / 2, y, { align: 'center' });
-        y += 20;
-      } else {
-        doc.setFontSize(20);
-        doc.setFont('helvetica', 'bold');
-        doc.text(item.title || `Puzzle ${index + 1}`, pageWidth / 2, y, { align: 'center' });
         y += 15;
+      } else {
+        doc.setFontSize(16);
+        doc.setFont('times', 'bold');
+        doc.text(item.title || `Item ${index + 1}`, margin, y);
+        y += 10;
       }
 
       if (item.description) {
         doc.setFontSize(11);
-        doc.setFont('helvetica', 'italic');
+        doc.setFont('times', 'italic');
         const splitDesc = doc.splitTextToSize(item.description, contentWidth);
-        doc.text(splitDesc, pageWidth / 2, y, { align: 'center' });
-        y += (splitDesc.length * 6) + 10;
+        doc.text(splitDesc, margin, y);
+        y += (splitDesc.length * 6) + 5;
       }
 
       if (item.grid) {
         const grid = item.grid;
-        const maxGridHeight = pageHeight - y - margin - 40;
+        const maxGridHeight = pageHeight - y - margin - 20;
         const cellSize = Math.min(contentWidth / grid[0].length, maxGridHeight / grid.length);
         const startX = margin + (contentWidth - grid[0].length * cellSize) / 2;
         const startY = y;
@@ -192,7 +211,7 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
           const startY = y + row * (gridHeight + 10);
 
           doc.setFontSize(cellSize * 0.6);
-          doc.setFont('helvetica', 'bold');
+          doc.setFont('times', 'bold');
           doc.text(g.title, startX + (9 * cellSize) / 2, startY - 2, { align: 'center' });
 
           g.grid.forEach((r: any[], ri: number) => {
@@ -216,11 +235,12 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
             });
           });
         });
+        y += (Math.ceil(item.grids.length / 2) * (gridHeight + 10)) + 10;
       }
 
       if (item.content) {
         doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('times', 'normal');
         const splitContent = doc.splitTextToSize(item.content, contentWidth);
         doc.text(splitContent, margin, y);
         y += (splitContent.length * 6) + 10;
@@ -228,15 +248,22 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
 
       if (item.words) {
         doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont('times', 'bold');
         doc.text('Words to find:', margin, y);
         y += 8;
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('times', 'normal');
         const words = Array.isArray(item.words) ? item.words.join(', ') : item.words;
         const splitWords = doc.splitTextToSize(words, contentWidth);
         doc.text(splitWords, margin, y);
+        y += (splitWords.length * 6) + 10;
       }
     });
+
+    // Final page footer
+    doc.setFontSize(10);
+    doc.setFont('times', 'italic');
+    doc.setTextColor(150, 150, 150);
+    doc.text(`- ${pageNum} -`, pageWidth / 2, pageHeight - 10, { align: 'center' });
   }
 
   doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
@@ -245,8 +272,14 @@ export const exportToPDF = async (title: string, content: any[], type: 'book' | 
 export const exportToDOCX = async (title: string, content: any[], type: 'book' | 'puzzle' | 'trivia' | 'coloring') => {
   const children: (Paragraph | Table)[] = [
     new Paragraph({
-      text: title,
-      heading: HeadingLevel.HEADING_1,
+      children: [
+        new TextRun({
+          text: title,
+          size: 44, // 22pt
+          bold: true,
+          font: "Times New Roman",
+        }),
+      ],
       alignment: AlignmentType.CENTER,
       spacing: { after: 400 },
     }),
@@ -284,9 +317,9 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
                 children: [
                   new TextRun({
                     text: item.title || 'Coloring Page',
-                    size: 24, // 12pt
+                    size: 32, // 16pt
                     bold: true,
-                    font: "Helvetica",
+                    font: "Times New Roman",
                   }),
                 ],
                 alignment: AlignmentType.CENTER,
@@ -335,9 +368,9 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
               children: [
                 new TextRun({
                   text: item.title,
-                  size: 36, // 18pt
+                  size: 32, // 16pt
                   bold: true,
-                  font: "Helvetica",
+                  font: "Times New Roman",
                 }),
               ],
               alignment: AlignmentType.CENTER,
@@ -352,7 +385,7 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
               children: [
                 new TextRun({
                   text: item.content,
-                  size: 28, // 14pt
+                  size: 24, // 12pt
                   font: "Times New Roman",
                 }),
               ],
@@ -372,6 +405,7 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
               size: 20,
               italics: true,
               color: "999999",
+              font: "Times New Roman",
             }),
           ],
           alignment: AlignmentType.CENTER,
@@ -381,18 +415,24 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
     });
   } else if (type === 'trivia' || type === 'puzzle') {
     content.forEach((item, index) => {
+      // For trivia, we don't necessarily want a page break for every item
+      // But for simplicity in DOCX (which handles flow better than PDF), we can just append paragraphs
+      // unless it's a puzzle which usually wants its own page.
+      const isPuzzle = !!item.grid;
+      
       children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: item.title || (item.isSolution ? 'Answer Key' : `Puzzle ${index + 1}`),
-              size: item.isSolution ? 44 : 40,
+              text: item.title || (item.isSolution ? 'Answer Key' : `Item ${index + 1}`),
+              size: 32, // 16pt
               bold: true,
+              font: "Times New Roman",
             }),
           ],
           spacing: { before: 400, after: 200 },
-          pageBreakBefore: index > 0,
-          alignment: AlignmentType.CENTER,
+          pageBreakBefore: index > 0 && (isPuzzle || item.isSolution),
+          alignment: isPuzzle || item.isSolution ? AlignmentType.CENTER : AlignmentType.LEFT,
         })
       );
 
@@ -404,10 +444,11 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
                 text: item.description,
                 size: 22,
                 italics: true,
+                font: "Times New Roman",
               }),
             ],
             spacing: { after: 200 },
-            alignment: AlignmentType.CENTER,
+            alignment: isPuzzle || item.isSolution ? AlignmentType.CENTER : AlignmentType.LEFT,
           })
         );
       }
@@ -429,6 +470,7 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
                           size: 20,
                           bold: true,
                           color: isHighlighted ? "FFFFFF" : "000000",
+                          font: "Times New Roman",
                         })
                       ],
                       alignment: AlignmentType.CENTER 
@@ -464,7 +506,11 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
                   children: pair.map((g: any) => 
                     new TableCell({
                       children: [
-                        new Paragraph({ text: g.title, alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
+                        new Paragraph({ 
+                          children: [new TextRun({ text: g.title, bold: true, size: 24, font: "Times New Roman" })],
+                          alignment: AlignmentType.CENTER, 
+                          spacing: { after: 100 } 
+                        }),
                         new Table({
                           width: { size: 90, type: WidthType.PERCENTAGE },
                           alignment: AlignmentType.CENTER,
@@ -473,7 +519,7 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
                               children: r.map((c: any, ci: number) => 
                                 new TableCell({
                                   children: [new Paragraph({ 
-                                    children: [new TextRun({ text: String(c || ""), size: 16 })],
+                                    children: [new TextRun({ text: String(c || ""), size: 16, font: "Times New Roman" })],
                                     alignment: AlignmentType.CENTER 
                                   })],
                                   borders: {
@@ -510,7 +556,8 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
             children: [
               new TextRun({
                 text: item.content,
-                size: 24,
+                size: 24, // 12pt
+                font: "Times New Roman",
               }),
             ],
             spacing: { before: 200, after: 200 },
@@ -525,7 +572,8 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
               new TextRun({
                 text: "Words to find:",
                 bold: true,
-                size: 24,
+                size: 24, // 12pt
+                font: "Times New Roman",
               }),
             ],
             spacing: { before: 400, after: 200 },
@@ -534,7 +582,8 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
             children: [
               new TextRun({
                 text: Array.isArray(item.words) ? item.words.join(', ') : item.words,
-                size: 24,
+                size: 24, // 12pt
+                font: "Times New Roman",
               }),
             ],
             spacing: { after: 400 },
@@ -551,6 +600,7 @@ export const exportToDOCX = async (title: string, content: any[], type: 'book' |
               size: 20,
               italics: true,
               color: "999999",
+              font: "Times New Roman",
             }),
           ],
           alignment: AlignmentType.CENTER,

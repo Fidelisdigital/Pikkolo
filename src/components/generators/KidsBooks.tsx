@@ -17,6 +17,8 @@ interface Page {
   illustrationPrompt: string;
   imageUrl?: string;
   isGeneratingImage?: boolean;
+  isImageLoading?: boolean;
+  retryCount?: number;
 }
 
 interface Book {
@@ -141,9 +143,15 @@ const KidsBooks: React.FC = () => {
     setBook({ ...book, pages: newPages });
 
     try {
-      const imageUrl = await generateImage(page.illustrationPrompt, false);
+      const imageUrl = await generateImage(page.illustrationPrompt, 'kids');
       const updatedPages = [...book.pages];
-      updatedPages[index] = { ...page, imageUrl, isGeneratingImage: false };
+      updatedPages[index] = { 
+        ...page, 
+        imageUrl, 
+        isGeneratingImage: false, 
+        isImageLoading: true,
+        retryCount: 0 
+      };
       setBook({ ...book, pages: updatedPages });
       setToast({ message: 'Illustration generated successfully!', type: 'success' });
     } catch (error: any) {
@@ -344,21 +352,53 @@ const KidsBooks: React.FC = () => {
                       <div className="aspect-square w-full bg-muted rounded-[32px] overflow-hidden border border-border relative group/img">
                         {book.pages[currentPage].imageUrl ? (
                           <>
+                            {book.pages[currentPage].isImageLoading && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-muted z-10">
+                                <Loader2 className="animate-spin text-primary" size={48} />
+                              </div>
+                            )}
                             <img 
                               src={book.pages[currentPage].imageUrl} 
                               alt={`Illustration for page ${currentPage + 1}`} 
-                              className="w-full h-full object-contain"
+                              className={`w-full h-full object-contain transition-opacity duration-300 ${book.pages[currentPage].isImageLoading ? 'opacity-0' : 'opacity-100'}`}
                               referrerPolicy="no-referrer"
+                              onLoad={() => {
+                                const newPages = [...book.pages];
+                                newPages[currentPage] = { ...newPages[currentPage], isImageLoading: false };
+                                setBook({ ...book, pages: newPages });
+                              }}
+                              onError={() => {
+                                const page = book.pages[currentPage];
+                                if ((page.retryCount || 0) < 1) {
+                                  // Retry once
+                                  const newPages = [...book.pages];
+                                  const timestamp = new Date().getTime();
+                                  newPages[currentPage] = { 
+                                    ...page, 
+                                    imageUrl: `${page.imageUrl}&t=${timestamp}`,
+                                    retryCount: (page.retryCount || 0) + 1,
+                                    isImageLoading: true 
+                                  };
+                                  setBook({ ...book, pages: newPages });
+                                } else {
+                                  const newPages = [...book.pages];
+                                  newPages[currentPage] = { ...page, isImageLoading: false, imageUrl: undefined };
+                                  setBook({ ...book, pages: newPages });
+                                  setToast({ message: 'Failed to load image after retry', type: 'error' });
+                                }
+                              }}
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                              <button 
-                                onClick={() => generatePageImage(currentPage)}
-                                className="p-4 bg-primary text-primary-foreground rounded-full hover:scale-110 transition-transform shadow-lg"
-                                title="Regenerate Illustration"
-                              >
-                                <RefreshCw size={24} className={book.pages[currentPage].isGeneratingImage ? 'animate-spin' : ''} />
-                              </button>
-                            </div>
+                            {!book.pages[currentPage].isImageLoading && (
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                <button 
+                                  onClick={() => generatePageImage(currentPage)}
+                                  className="p-4 bg-primary text-primary-foreground rounded-full hover:scale-110 transition-transform shadow-lg"
+                                  title="Regenerate Illustration"
+                                >
+                                  <RefreshCw size={24} className={book.pages[currentPage].isGeneratingImage ? 'animate-spin' : ''} />
+                                </button>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <button 

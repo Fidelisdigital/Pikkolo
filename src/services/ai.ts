@@ -5,31 +5,21 @@ const ai = new GoogleGenAI({ apiKey });
 
 export const model = "gemini-3-flash-preview";
 
-export async function generateImage(prompt: string, isColoringBook: boolean = false): Promise<string> {
+export async function generateImage(prompt: string, type: 'kids' | 'coloring' | 'cover' = 'kids'): Promise<string> {
   try {
-    console.log("Generating image with Pollinations AI for prompt:", prompt);
-    
     let finalPrompt = prompt;
-    if (isColoringBook) {
-      finalPrompt = `${prompt}, coloring book black and white line art`;
+    
+    if (type === 'kids') {
+      finalPrompt = `${prompt}, colorful child friendly cartoon style`;
+    } else if (type === 'coloring') {
+      finalPrompt = `${prompt}, black and white line art coloring page no color simple outlines`;
     }
 
     // Encode the prompt for the URL
     const encodedPrompt = encodeURIComponent(finalPrompt);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&nologo=true`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&nologo=true&nofeed=true`;
     
-    // We return the URL directly. Pollinations generates the image on request.
-    // To "handle loading states properly", we can pre-fetch the image or just let the browser handle it.
-    // The current UI expects this to be an async call that completes when the image is "ready".
-    // We'll do a quick fetch to ensure the URL is valid/triggered, though it's not strictly necessary for Pollinations.
-    // Actually, to satisfy the "handle loading states" requirement in the UI, we should wait for the image to load.
-    
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(imageUrl);
-      img.onerror = () => reject(new Error("Failed to load image from Pollinations AI"));
-      img.src = imageUrl;
-    });
+    return imageUrl;
   } catch (error: any) {
     console.error("Pollinations AI Error:", error);
     throw new Error(`Image generation failed: ${error.message || 'Unknown error'}`);

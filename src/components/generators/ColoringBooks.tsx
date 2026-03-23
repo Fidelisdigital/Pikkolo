@@ -18,6 +18,8 @@ interface ColoringPage {
   prompt: string;
   imageUrl?: string;
   isGeneratingImage?: boolean;
+  isImageLoading?: boolean;
+  retryCount?: number;
 }
 
 const ColoringBooks: React.FC = () => {
@@ -143,9 +145,15 @@ const ColoringBooks: React.FC = () => {
     setPages(newPages);
 
     try {
-      const imageUrl = await generateImage(page.prompt, true);
+      const imageUrl = await generateImage(page.prompt, 'coloring');
       const updatedPages = [...pages];
-      updatedPages[index] = { ...page, imageUrl, isGeneratingImage: false };
+      updatedPages[index] = { 
+        ...page, 
+        imageUrl, 
+        isGeneratingImage: false,
+        isImageLoading: true,
+        retryCount: 0
+      };
       setPages(updatedPages);
       setToast({ message: 'Image generated successfully!', type: 'success' });
     } catch (error: any) {
@@ -299,21 +307,53 @@ const ColoringBooks: React.FC = () => {
                 
                 {page.imageUrl ? (
                   <div className="aspect-[3/4] w-full bg-muted rounded-2xl overflow-hidden border border-border relative group/img">
+                    {page.isImageLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted z-10">
+                        <Loader2 className="animate-spin text-primary" size={48} />
+                      </div>
+                    )}
                     <img 
                       src={page.imageUrl} 
                       alt={page.title} 
-                      className="w-full h-full object-contain"
+                      className={`w-full h-full object-contain transition-opacity duration-300 ${page.isImageLoading ? 'opacity-0' : 'opacity-100'}`}
                       referrerPolicy="no-referrer"
+                      onLoad={() => {
+                        const newPages = [...pages];
+                        newPages[i] = { ...newPages[i], isImageLoading: false };
+                        setPages(newPages);
+                      }}
+                      onError={() => {
+                        const page = pages[i];
+                        if ((page.retryCount || 0) < 1) {
+                          // Retry once
+                          const newPages = [...pages];
+                          const timestamp = new Date().getTime();
+                          newPages[i] = { 
+                            ...page, 
+                            imageUrl: `${page.imageUrl}&t=${timestamp}`,
+                            retryCount: (page.retryCount || 0) + 1,
+                            isImageLoading: true 
+                          };
+                          setPages(newPages);
+                        } else {
+                          const newPages = [...pages];
+                          newPages[i] = { ...page, isImageLoading: false, imageUrl: undefined };
+                          setPages(newPages);
+                          setToast({ message: 'Failed to load image after retry', type: 'error' });
+                        }
+                      }}
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                      <button 
-                        onClick={() => generatePageImage(i)}
-                        className="p-3 bg-primary text-primary-foreground rounded-full hover:scale-110 transition-transform shadow-lg"
-                        title="Regenerate Image"
-                      >
-                        <RefreshCw size={20} className={page.isGeneratingImage ? 'animate-spin' : ''} />
-                      </button>
-                    </div>
+                    {!page.isImageLoading && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                        <button 
+                          onClick={() => generatePageImage(i)}
+                          className="p-3 bg-primary text-primary-foreground rounded-full hover:scale-110 transition-transform shadow-lg"
+                          title="Regenerate Image"
+                        >
+                          <RefreshCw size={20} className={page.isGeneratingImage ? 'animate-spin' : ''} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <button 

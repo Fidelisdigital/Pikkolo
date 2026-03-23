@@ -28,7 +28,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, initialMode = 'login' })
           email, 
           password,
           options: {
-            redirectTo: import.meta.env.VITE_APP_URL || window.location.origin
+            emailRedirectTo: import.meta.env.VITE_APP_URL || window.location.origin
           }
         });
         if (error) throw error;

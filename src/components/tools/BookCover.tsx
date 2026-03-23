@@ -25,6 +25,7 @@ const BookCover: React.FC = () => {
   const [customInstructions, setCustomInstructions, clearCustomInstructions] = useDraft('book_cover_custom_instructions', '');
   const [bgImage, setBgImage, clearBgImage] = useDraft<string | null>('book_cover_bg_image', null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
 
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
@@ -52,7 +53,8 @@ const BookCover: React.FC = () => {
     setIsGenerating(true);
     try {
       const prompt = `Professional book cover background illustration, ${bgPrompt}, high resolution, artistic style, no text, ${customInstructions}`;
-      const imageUrl = await generateImage(prompt, false);
+      const imageUrl = await generateImage(prompt, 'cover');
+      setIsImageLoading(true);
       setBgImage(imageUrl);
     } catch (error) {
       console.error("Failed to generate background:", error);
@@ -70,6 +72,7 @@ const BookCover: React.FC = () => {
     // Background
     if (bgImage) {
       const img = new Image();
+      img.crossOrigin = "anonymous"; // Important for canvas toDataURL
       img.src = bgImage;
       img.onload = () => {
         // Draw image
@@ -80,6 +83,17 @@ const BookCover: React.FC = () => {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         drawText(ctx, canvas);
+        setIsImageLoading(false);
+      };
+      img.onerror = () => {
+        if (!bgImage.includes('&t=')) {
+          const timestamp = new Date().getTime();
+          setBgImage(`${bgImage}&t=${timestamp}`);
+        } else {
+          console.error("Failed to load background image after retry");
+          setBgImage(null);
+          setIsImageLoading(false);
+        }
       };
     } else {
       ctx.fillStyle = scheme.primary;
@@ -275,12 +289,14 @@ const BookCover: React.FC = () => {
               ref={canvasRef} 
               width={400} 
               height={600} 
-              className="relative bg-background rounded-lg shadow-2xl border border-border w-full max-w-[400px] aspect-[2/3]"
+              className={`relative bg-background rounded-lg shadow-2xl border border-border w-full max-w-[400px] aspect-[2/3] transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
             />
-            {isGenerating && (
+            {(isGenerating || isImageLoading) && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center text-white gap-4">
                 <Loader2 className="animate-spin" size={48} />
-                <span className="font-serif italic text-xl">Generating Masterpiece...</span>
+                <span className="font-serif italic text-xl">
+                  {isGenerating ? 'Generating Masterpiece...' : 'Loading Artwork...'}
+                </span>
               </div>
             )}
           </div>

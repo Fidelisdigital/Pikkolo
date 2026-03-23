@@ -143,7 +143,7 @@ const ColoringBooks: React.FC = () => {
     setPages(newPages);
 
     try {
-      const imageUrl = await generateImage(page.prompt);
+      const imageUrl = await generateImage(page.prompt, true);
       const updatedPages = [...pages];
       updatedPages[index] = { ...page, imageUrl, isGeneratingImage: false };
       setPages(updatedPages);

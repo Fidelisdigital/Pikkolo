@@ -4,39 +4,34 @@ const apiKey = process.env.GEMINI_API_KEY || "";
 const ai = new GoogleGenAI({ apiKey });
 
 export const model = "gemini-3-flash-preview";
-export const imageModel = "gemini-2.5-flash-image";
 
-export async function generateImage(prompt: string): Promise<string> {
+export async function generateImage(prompt: string, isColoringBook: boolean = false): Promise<string> {
   try {
-    console.log("Generating image with prompt:", prompt);
-    const response = await ai.models.generateContent({
-      model: imageModel,
-      contents: {
-        parts: [{ text: prompt }],
-      },
+    console.log("Generating image with Pollinations AI for prompt:", prompt);
+    
+    let finalPrompt = prompt;
+    if (isColoringBook) {
+      finalPrompt = `${prompt}, coloring book black and white line art`;
+    }
+
+    // Encode the prompt for the URL
+    const encodedPrompt = encodeURIComponent(finalPrompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&nologo=true`;
+    
+    // We return the URL directly. Pollinations generates the image on request.
+    // To "handle loading states properly", we can pre-fetch the image or just let the browser handle it.
+    // The current UI expects this to be an async call that completes when the image is "ready".
+    // We'll do a quick fetch to ensure the URL is valid/triggered, though it's not strictly necessary for Pollinations.
+    // Actually, to satisfy the "handle loading states" requirement in the UI, we should wait for the image to load.
+    
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(imageUrl);
+      img.onerror = () => reject(new Error("Failed to load image from Pollinations AI"));
+      img.src = imageUrl;
     });
-
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("No candidates returned from Gemini Image API");
-    }
-
-    const candidate = response.candidates[0];
-    if (candidate.finishReason && candidate.finishReason !== "STOP") {
-      throw new Error(`Image generation failed with reason: ${candidate.finishReason}`);
-    }
-
-    for (const part of candidate.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-      }
-    }
-    throw new Error("No image data found in response parts");
   } catch (error: any) {
-    console.error("Gemini Image API Error Details:", {
-      message: error.message,
-      stack: error.stack,
-      prompt
-    });
+    console.error("Pollinations AI Error:", error);
     throw new Error(`Image generation failed: ${error.message || 'Unknown error'}`);
   }
 }

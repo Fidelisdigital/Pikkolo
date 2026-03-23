@@ -52,7 +52,7 @@ const BookCover: React.FC = () => {
     setIsGenerating(true);
     try {
       const prompt = `Professional book cover background illustration, ${bgPrompt}, high resolution, artistic style, no text, ${customInstructions}`;
-      const imageUrl = await generateImage(prompt);
+      const imageUrl = await generateImage(prompt, false);
       setBgImage(imageUrl);
     } catch (error) {
       console.error("Failed to generate background:", error);

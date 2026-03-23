@@ -141,7 +141,7 @@ const KidsBooks: React.FC = () => {
     setBook({ ...book, pages: newPages });
 
     try {
-      const imageUrl = await generateImage(page.illustrationPrompt);
+      const imageUrl = await generateImage(page.illustrationPrompt, false);
       const updatedPages = [...book.pages];
       updatedPages[index] = { ...page, imageUrl, isGeneratingImage: false };
       setBook({ ...book, pages: updatedPages });
